@@ -25,7 +25,7 @@ const RARITY_CONFIG = {
   Common: {
     labelTh: 'โหลสุดๆ',
     color: 'text-slate-300',
-    border: 'border-slate-500/60',
+    border: 'border-slate-500/60', 
     bg: 'bg-slate-900/70',
     badge: 'bg-slate-500/20 text-slate-200 border-slate-400/40',
     points: 10,
