@@ -46,7 +46,7 @@ import {
   Zap,
   CheckCircle2,
   Send,
-  TrendingUp
+  Mountain
 } from 'lucide-react';
 
 const AVATARS = ['😎', '🦊', '🐱', '🚀', '👾', '🦄', '🐸', '🔥'];
@@ -61,183 +61,104 @@ const CATEGORIES = [
   { id: 'movies', th: 'หนังและซีรีส์', en: 'Movies & Series' }
 ];
 
-// ชุดคำถามปลายเปิดสำรอง (ใช้ทันทีหาก AI ตอบช้า)
 const FALLBACK_QUESTIONS = [
   {
     category: 'food',
     question: {
-      th: 'บอกชื่อ "เมนูอาหารตามสั่งในไทย" มา 1 อย่างที่คนมักจะนึกถึงน้อยที่สุด',
-      en: 'Name 1 Thai street food dish that very few people think of first'
+      th: 'บอกชื่อเมนู "อาหารตามสั่ง" ที่คนไทยมักสั่งเวลาคิดอะไรไม่ออก (ตอบเมนูที่คนสั่งน้อยที่สุด!)',
+      en: 'Name a common Thai street-food dish people order when undecided (aim for the LEAST ordered one!)'
     },
-    hint: { th: 'ต้องเป็นเมนูที่มีขายจริงตามร้านอาหารตามสั่ง', en: 'Must be a real street food dish' },
-    commonExamples: ['กะเพรา', 'ผัดกะเพรา', 'ข้าวผัด', 'ไข่เจียว', 'หมูกระเทียม', 'basil', 'fried rice', 'omelette']
-  },
-  {
-    category: 'food',
-    question: {
-      th: 'บอกชื่อ "ผลไม้ที่มีสีแดงหรือชมพู" มา 1 ชนิดแบบไม่ซ้ำใคร',
-      en: 'Name 1 red or pink fruit that most people forget'
-    },
-    hint: { th: 'ยิ่งหายากแต่มีอยู่จริง ยิ่งได้คะแนนสูง', en: 'Rarer real fruits score higher' },
-    commonExamples: ['แอปเปิ้ล', 'สตรอว์เบอร์รี', 'แตงโม', 'เชอร์รี', 'apple', 'strawberry', 'watermelon', 'cherry']
+    commonKeywords: ['กะเพรา', 'กระเพรา', 'ข้าวผัด', 'หมูกระเทียม', 'ไข่เจียว', 'basil', 'fried rice', 'garlic'],
+    crowdSummary: {
+      th: 'คำตอบยอดฮิต: ผัดกะเพรา (48%), ข้าวผัด (26%), หมูกระเทียม (16%)',
+      en: 'Top Crowd Answers: Basil Stir-fry (48%), Fried Rice (26%), Garlic Pork (16%)'
+    }
   },
   {
     category: 'daily',
     question: {
-      th: 'บอกชื่อ "สิ่งของที่มักวางอยู่บนโต๊ะทำงาน" มา 1 อย่างที่คนนึกถึงน้อยที่สุด',
-      en: 'Name 1 item commonly found on a desk that few people mention'
+      th: 'สิ่งแรกที่คนส่วนใหญ่ทำทันทีหลังจาก "ตื่นนอนตอนเช้า" คืออะไร? (ทายอย่างที่คนทำน้อยที่สุด)',
+      en: 'What is the very first thing people do right after waking up? (Name the LEAST common one)'
     },
-    hint: { th: 'ต้องเป็นของที่วางบนโต๊ะทำงานได้จริง', en: 'Must realistically be on a desk' },
-    commonExamples: ['ปากกา', 'คอมพิวเตอร์', 'โน้ตบุ๊ก', 'เมาส์', 'แก้วน้ำ', 'มือถือ', 'pen', 'laptop', 'mouse', 'phone']
-  },
-  {
-    category: 'daily',
-    question: {
-      th: 'บอกชื่อ "แอปพลิเคชันบนมือถือ" ที่คนใช้งานจริงแต่ไม่ค่อยมีใครนึกถึงเป็นอันดับแรก',
-      en: 'Name 1 real smartphone app that few people think of first'
-    },
-    hint: { th: 'หลีกเลี่ยงแอปโซเชียลยอดฮิตระดับโลก', en: 'Avoid the top mainstream social apps' },
-    commonExamples: ['line', 'ไลน์', 'facebook', 'เฟซบุ๊ก', 'tiktok', 'ติ๊กต็อก', 'youtube', 'instagram', 'ig']
+    commonKeywords: ['มือถือ', 'โทรศัพท์', 'เช็ก', 'นาฬิกาปลุก', 'เลื่อนปลุก', 'ล้างหน้า', 'แปรงฟัน', 'phone', 'snooze', 'brush'],
+    crowdSummary: {
+      th: 'คำตอบยอดฮิต: หยิบมือถือเช็กแจ้งเตือน (51%), กดเลื่อนปลุก (24%), แปรงฟัน (15%)',
+      en: 'Top Crowd Answers: Check phone (51%), Hit snooze (24%), Brush teeth (15%)'
+    }
   },
   {
     category: 'travel',
     question: {
-      th: 'บอกชื่อ "จังหวัดในประเทศไทย" มา 1 จังหวัดที่คนมักนึกชื่อออกเป็นลำดับท้าย ๆ',
-      en: 'Name 1 province in Thailand that people rarely think of first'
+      th: 'บอกชื่อ "ของใช้ส่วนตัว" ที่คนมักจัดใส่กระเป๋าเวลาไปเที่ยวต่างจังหวัด 3 วัน 2 คืน',
+      en: 'Name a personal item people pack for a 3-day weekend trip (pick the rarest one!)'
     },
-    hint: { th: 'ต้องเป็นชื่อจังหวัดในไทยจริง ๆ', en: 'Must be an actual Thai province' },
-    commonExamples: ['กรุงเทพ', 'เชียงใหม่', 'ภูเก็ต', 'ชลบุรี', 'ขอนแก่น', 'bangkok', 'chiang mai', 'phuket']
-  },
-  {
-    category: 'travel',
-    question: {
-      th: 'บอกชื่อ "ประเทศในทวีปยุโรป" มา 1 ประเทศที่คนส่วนใหญ่มักนึกไม่ถึง',
-      en: 'Name 1 European country that few people think of first'
-    },
-    hint: { th: 'ประเทศเล็ก ๆ ในยุโรปมักได้คะแนนสวนกระแสสูงมาก', en: 'Smaller European nations score high' },
-    commonExamples: ['อังกฤษ', 'ฝรั่งเศส', 'อิตาลี', 'เยอรมนี', 'สเปน', 'สวิตเซอร์แลนด์', 'france', 'italy', 'uk', 'germany', 'spain']
+    commonKeywords: ['สายชาร์จ', 'มือถือ', 'เสื้อผ้า', 'แปรงสีฟัน', 'กางเกงใน', 'พาวเวอร์แบงก์', 'charger', 'clothes', 'toothbrush'],
+    crowdSummary: {
+      th: 'คำตอบยอดฮิต: สายชาร์จมือถือ (46%), เสื้อผ้า (31%), แปรงสีฟัน (14%)',
+      en: 'Top Crowd Answers: Phone charger (46%), Clothes (31%), Toothbrush (14%)'
+    }
   },
   {
     category: 'pop',
     question: {
-      th: 'บอกชื่อ "กีฬาที่มีแข่งในโอลิมปิก" มา 1 ชนิดที่คนไม่ค่อยนึกถึง',
-      en: 'Name 1 Olympic sport that most people forget about'
+      th: 'กิจกรรมยามว่างที่คนชอบทำใน "วันหยุดเสาร์-อาทิตย์" คืออะไร?',
+      en: 'What is a popular weekend leisure activity? (Aim for the least common answer)'
     },
-    hint: { th: 'ต้องเป็นกีฬาที่เคยหรือกำลังแข่งในโอลิมปิกจริง', en: 'Must be a real Olympic sport' },
-    commonExamples: ['ฟุตบอล', 'ว่ายน้ำ', 'วิ่ง', 'บาสเกตบอล', 'วอลเลย์บอล', 'แบดมินตัน', 'football', 'swimming', 'basketball']
-  },
-  {
-    category: 'pop',
-    question: {
-      th: 'บอกชื่อ "เครื่องดนตรี" มา 1 ชนิดที่คนส่วนใหญ่มักไม่ตอบเป็นอันดับแรก',
-      en: 'Name 1 musical instrument that people rarely name first'
-    },
-    hint: { th: 'เครื่องดนตรีสากลหรือดนตรีพื้นบ้านก็ได้ทั้งหมด', en: 'Any real instrument worldwide counts' },
-    commonExamples: ['กีตาร์', 'เปียโน', 'กลอง', 'ไวโอลิน', 'guitar', 'piano', 'drums', 'violin']
+    commonKeywords: ['นอน', 'ดูหนัง', 'ซีรีส์', 'เล่นเกม', 'เดินห้าง', 'คาเฟ่', 'sleep', 'movie', 'game', 'mall'],
+    crowdSummary: {
+      th: 'คำตอบยอดฮิต: นอนพักผ่อน (44%), ดูหนัง/ซีรีส์ (27%), เล่นเกม (18%)',
+      en: 'Top Crowd Answers: Sleeping (44%), Watching movies (27%), Gaming (18%)'
+    }
   },
   {
     category: 'tech',
     question: {
-      th: 'บอกชื่อ "ภาษาโปรแกรมมิ่งหรือชื่อแบรนด์ไอที" มา 1 ชื่อแบบสวนกระแส',
-      en: 'Name 1 programming language or tech brand that few people mention first'
+      th: 'บอกชื่อ "แอปพลิเคชัน" ในมือถือที่คนทั่วไปเปิดใช้งานแทบทุกวัน',
+      en: 'Name a smartphone app everyday people open almost every single day'
     },
-    hint: { th: 'แบรนด์เก่าหรือภาษาเฉพาะทางมักได้คะแนนสูง', en: 'Niche languages or brands score higher' },
-    commonExamples: ['python', 'java', 'javascript', 'apple', 'samsung', 'google', 'microsoft']
+    commonKeywords: ['ไลน์', 'เฟซ', 'เฟส', 'ยูทูป', 'ติ๊กต็อก', 'ไอจี', 'line', 'facebook', 'youtube', 'tiktok', 'instagram'],
+    crowdSummary: {
+      th: 'คำตอบยอดฮิต: LINE (42%), TikTok (28%), YouTube (19%)',
+      en: 'Top Crowd Answers: LINE (42%), TikTok (28%), YouTube (19%)'
+    }
   },
   {
     category: 'movies',
     question: {
-      th: 'บอกชื่อ "ตัวละครซูเปอร์ฮีโร่หรือตัวละครอนิเมะ" มา 1 ตัวแบบที่คนไม่ค่อยนึกถึง',
-      en: 'Name 1 superhero or anime character that few people think of first'
+      th: 'ของกินหรือเครื่องดื่มที่คนมักซื้อเข้าไปกินใน "โรงภาพยนตร์" คืออะไร?',
+      en: 'What snack or drink do people usually buy at a movie theater?'
     },
-    hint: { th: 'ตัวละครรองหรือตัวละครคลาสสิกช่วยสวนกระแสได้ดี', en: 'Supporting or classic characters work great' },
-    commonExamples: ['สไปเดอร์แมน', 'ไอรอนแมน', 'แบทแมน', 'นารูโตะ', 'ลูฟี่', 'โดราเอมอน', 'spiderman', 'batman', 'naruto', 'luffy']
+    commonKeywords: ['ป๊อปคอร์น', 'ข้าวโพด', 'น้ำอัดลม', 'โค้ก', 'เป๊ปซี่', 'popcorn', 'soda', 'coke'],
+    crowdSummary: {
+      th: 'คำตอบยอดฮิต: ป๊อปคอร์น (55%), น้ำอัดลม (29%), ไส้กรอก/นักเก็ต (10%)',
+      en: 'Top Crowd Answers: Popcorn (55%), Soda (29%), Nuggets (10%)'
+    }
+  },
+  {
+    category: 'food',
+    question: {
+      th: 'บอกชื่อ "ผลไม้ยอดนิยม" ที่คนไทยชอบซื้อติดตู้เย็นไว้กิน',
+      en: 'Name a popular fruit people keep in their fridge at home'
+    },
+    commonKeywords: ['แตงโม', 'กล้วย', 'ส้ม', 'แอปเปิ้ล', 'มะม่วง', 'ฝรั่ง', 'watermelon', 'banana', 'orange', 'apple'],
+    crowdSummary: {
+      th: 'คำตอบยอดฮิต: แตงโม (39%), ส้ม (25%), แอปเปิ้ล (21%)',
+      en: 'Top Crowd Answers: Watermelon (39%), Orange (25%), Apple (21%)'
+    }
+  },
+  {
+    category: 'daily',
+    question: {
+      th: 'ข้ออ้างยอดฮิตเวลาคนมาทำงานหรือมาเรียน "สาย" คืออะไร?',
+      en: 'What is a classic excuse people use when arriving late to work or school?'
+    },
+    commonKeywords: ['รถติด', 'ตื่นสาย', 'ฝนตก', 'ท้องเสีย', 'รถเสีย', 'traffic', 'overslept', 'rain'],
+    crowdSummary: {
+      th: 'คำตอบยอดฮิต: รถติดหนักมาก (52%), นาฬิกาปลุกไม่ดัง/ตื่นสาย (27%), ฝนตก (14%)',
+      en: 'Top Crowd Answers: Heavy traffic (52%), Overslept (27%), Heavy rain (14%)'
+    }
   }
 ];
-
-function computeScoreFromJudge(judgeResult, streak = 0, mode = 'normal') {
-  if (!judgeResult || !judgeResult.valid) {
-    return {
-      points: 0,
-      isReverseMaster: false,
-      isTrap: true,
-      tier: 'invalid'
-    };
-  }
-  const pct = Math.min(99, Math.max(1, Math.round(Number(judgeResult.crowdPct) || 50)));
-  if (pct >= 65) {
-    return {
-      points: 0,
-      isReverseMaster: false,
-      isTrap: true,
-      tier: 'crowd'
-    };
-  }
-  if (pct <= 20) {
-    const base = mode === 'survival' ? Math.round((100 - pct) * 2.2) : Math.round((100 - pct) * 2);
-    const bonus = streak * (mode === 'survival' ? 35 : 25);
-    return {
-      points: base + bonus,
-      isReverseMaster: true,
-      isTrap: false,
-      tier: 'rare'
-    };
-  }
-  const normalPts = Math.max(20, Math.round((100 - pct) * 1.4));
-  return {
-    points: normalPts,
-    isReverseMaster: false,
-    isTrap: false,
-    tier: 'good'
-  };
-}
-
-function localFallbackJudge(questionObj, submissions) {
-  const commonList = (questionObj?.commonExamples || []).map((s) => s.toLowerCase());
-  return submissions.map((sub) => {
-    const ans = (sub.answer || '').trim();
-    const lower = ans.toLowerCase();
-
-    if (ans.length < 2 || /^[\d\s\W]+$/.test(ans)) {
-      return {
-        key: String(sub.key),
-        valid: false,
-        crowdPct: 100,
-        feedback: {
-          th: 'คำตอบสั้นเกินไปหรือไม่ชัดเจน ลองพิมพ์คำตอบที่เป็นคำจริง ๆ นะครับ',
-          en: 'Answer is too short or unclear. Please type a valid answer.'
-        }
-      };
-    }
-
-    const hitCommon = commonList.some((c) => lower.includes(c) || c.includes(lower));
-    if (hitCommon) {
-      const pct = 72 + (ans.length % 18);
-      return {
-        key: String(sub.key),
-        valid: true,
-        crowdPct: pct,
-        feedback: {
-          th: 'คำตอบนี้ถูกต้อง แต่ยอดฮิตเกินไป! คนส่วนใหญ่ตอบเหมือนกันเพียบเลย',
-          en: 'Correct, but way too popular! Most people thought of this too.'
-        }
-      };
-    }
-
-    let hash = 0;
-    for (let i = 0; i < ans.length; i++) hash = (hash * 31 + ans.charCodeAt(i)) % 100;
-    const pct = Math.max(6, Math.min(46, 48 - Math.min(28, ans.length * 2) + (hash % 14)));
-    return {
-      key: String(sub.key),
-      valid: true,
-      crowdPct: pct,
-      feedback: {
-        th: pct <= 20 ? 'สวนกระแสสุดยอด! คำตอบเฉพาะตัวมาก คนส่วนใหญ่นึกไม่ถึง' : 'คำตอบใช้ได้เลย! แหวกแนวกว่าคนส่วนใหญ่พอสมควร',
-        en: pct <= 20 ? 'Brilliant reverse answer! Very few people think of this.' : 'Solid answer! More unique than average.'
-      }
-    };
-  });
-}
 
 function safeCopyToClipboard(text) {
   if (navigator.clipboard && window.isSecureContext) {
@@ -262,6 +183,82 @@ function safeCopyToClipboard(text) {
   });
 }
 
+function evaluateAnswerLocally(questionObj, rawAnswer, streak = 0) {
+  const ans = (rawAnswer || '').trim();
+  const lower = ans.toLowerCase();
+
+  // Check empty or gibberish
+  if (ans.length < 2 || /^(.)\1+$/.test(lower) || /^[0-9]+$/.test(lower)) {
+    return {
+      isValid: false,
+      pct: 100,
+      points: 0,
+      floors: 0,
+      isReverseWinner: false,
+      isCrowdTrap: true,
+      comment: {
+        th: 'คำตอบสั้นเกินไปหรือไม่ตรงโจทย์ AI ถือว่าตกกระแสหลัก (0 คะแนน)',
+        en: 'Answer is too short or invalid. Treated as a crowd trap (0 pts).'
+      },
+      crowdSummary: questionObj?.crowdSummary || {
+        th: 'คำตอบยอดฮิตของคนส่วนใหญ่',
+        en: 'Top mainstream crowd answers'
+      }
+    };
+  }
+
+  const keywords = questionObj?.commonKeywords || [];
+  const hitCommon = keywords.some((kw) => lower.includes(kw.toLowerCase()));
+
+  if (hitCommon) {
+    const pct = 42 + (ans.length % 15);
+    return {
+      isValid: true,
+      pct,
+      points: 0,
+      floors: 0,
+      isReverseWinner: false,
+      isCrowdTrap: true,
+      comment: {
+        th: `ใจตรงกับคนส่วนใหญ่เป๊ะ! (${pct}% ตอบแนวนี้) พลาดโอกาสปีนหอคอยในรอบนี้`,
+        en: `Too mainstream! (${pct}% chose this) No tower climb this round.`
+      },
+      crowdSummary: questionObj?.crowdSummary || {
+        th: 'คำตอบยอดฮิตของคนส่วนใหญ่',
+        en: 'Top mainstream crowd answers'
+      }
+    };
+  }
+
+  // Creative / Rare answer
+  const hash = ans.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  const pct = 4 + (hash % 14); // 4% - 17%
+  const isTopReverse = pct <= 11;
+  const basePoints = isTopReverse ? 180 + streak * 30 : 120 + streak * 15;
+  const floors = isTopReverse ? 3 : 2;
+
+  return {
+    isValid: true,
+    pct,
+    points: basePoints,
+    floors,
+    isReverseWinner: isTopReverse,
+    isCrowdTrap: false,
+    comment: {
+      th: isTopReverse
+        ? `สุดยอดความแหวกแนว! มีคนตอบแบบนี้แค่ ${pct}% ปีนขึ้นไป +${floors} ชั้น!`
+        : `คำตอบสวนกระแสได้ดี! มีคนคิดเหมือนคุณเพียง ${pct}% ปีนขึ้น +${floors} ชั้น`,
+      en: isTopReverse
+        ? `Brilliant rare answer! Only ${pct}% said this. Climbed +${floors} floors!`
+        : `Nice off-beat answer! Only ${pct}% chose this. Climbed +${floors} floors.`
+    },
+    crowdSummary: questionObj?.crowdSummary || {
+      th: 'คำตอบยอดฮิตของคนส่วนใหญ่',
+      en: 'Top mainstream crowd answers'
+    }
+  };
+}
+
 const GlobalStyles = memo(() => (
   <style>{`
     @keyframes fadeUp {
@@ -270,12 +267,12 @@ const GlobalStyles = memo(() => (
     }
     @keyframes popIn {
       0% { opacity: 0; transform: scale(0.86); }
-      70% { transform: scale(1.05); }
+      70% { transform: scale(1.04); }
       100% { opacity: 1; transform: scale(1); }
     }
     @keyframes floatSlow {
       0%, 100% { transform: translate3d(0, 0, 0); }
-      50% { transform: translate3d(0, -7px, 0); }
+      50% { transform: translate3d(0, -6px, 0); }
     }
     @keyframes shakeX {
       0%, 100% { transform: translate3d(0, 0, 0); }
@@ -284,9 +281,15 @@ const GlobalStyles = memo(() => (
       60% { transform: translate3d(-5px, 0, 0); }
       80% { transform: translate3d(5px, 0, 0); }
     }
+    @keyframes climbPulse {
+      0% { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.9); }
+      25% { opacity: 1; transform: translate3d(0, -4px, 0) scale(1.05); }
+      85% { opacity: 1; transform: translate3d(0, -10px, 0) scale(1); }
+      100% { opacity: 0; transform: translate3d(0, -18px, 0) scale(0.95); }
+    }
     @keyframes orbDrift {
       0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-      50% { transform: translate3d(18px, -16px, 0) scale(1.06); }
+      50% { transform: translate3d(18px, -16px, 0) scale(1.05); }
     }
     @keyframes confettiFall {
       0% { opacity: 1; transform: translate3d(0, -10px, 0) rotate(0deg); }
@@ -296,30 +299,14 @@ const GlobalStyles = memo(() => (
       0% { opacity: 0; transform: translate3d(-50%, 16px, 0) scale(0.95); }
       100% { opacity: 1; transform: translate3d(-50%, 0, 0) scale(1); }
     }
-    @keyframes climbHop {
-      0%, 100% { transform: translateY(0) scale(1); }
-      35% { transform: translateY(-9px) scale(1.12); }
-      70% { transform: translateY(-3px) scale(1.04); }
-    }
-    @keyframes deltaRise {
-      0% { opacity: 0; transform: translateY(8px) scale(0.85); }
-      25% { opacity: 1; transform: translateY(-4px) scale(1.08); }
-      100% { opacity: 1; transform: translateY(-10px) scale(1); }
-    }
-    @keyframes twinkle {
-      0%, 100% { opacity: 0.25; }
-      50% { opacity: 0.95; }
-    }
     .anim-fade-up { animation: fadeUp 0.34s cubic-bezier(0.16, 1, 0.3, 1) both; }
     .anim-pop { animation: popIn 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
     .anim-float { animation: floatSlow 3.2s ease-in-out infinite; }
     .anim-shake { animation: shakeX 0.42s ease-in-out both; }
-    .anim-orb { animation: orbDrift 11s ease-in-out infinite; will-change: transform; }
+    .anim-climb-badge { animation: climbPulse 2.2s ease-out forwards; }
+    .anim-orb { animation: orbDrift 12s ease-in-out infinite; will-change: transform; }
     .anim-toast { animation: toastSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
-    .anim-climb-hop { animation: climbHop 0.65s ease-out 2; }
-    .anim-delta { animation: deltaRise 0.8s cubic-bezier(0.16, 1, 0.3, 1) both; }
-    .anim-twinkle { animation: twinkle 2.4s ease-in-out infinite; }
-    .btn-press { transition: transform 0.16s ease, background-color 0.16s ease, border-color 0.16s ease; }
+    .btn-press { transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease; }
     .btn-press:active:not(:disabled) { transform: scale(0.97); }
   `}</style>
 ));
@@ -332,27 +319,25 @@ const AmbientBackground = memo(() => (
       style={{ animationDelay: '-4s' }}
     />
     <div
-      className="anim-orb absolute -bottom-24 left-1/4 w-72 h-72 rounded-full bg-emerald-500/10 blur-3xl"
-      style={{ animationDelay: '-7s' }}
+      className="anim-orb absolute -bottom-24 left-1/4 w-72 h-72 rounded-full bg-amber-500/10 blur-3xl"
+      style={{ animationDelay: '-8s' }}
     />
   </div>
 ));
 
 const CONFETTI_PIECES = [
-  { left: '10%', color: '#34d399', tx: '-32px', delay: '0s' },
-  { left: '22%', color: '#818cf8', tx: '24px', delay: '0.05s' },
-  { left: '35%', color: '#fbbf24', tx: '-18px', delay: '0.1s' },
-  { left: '48%', color: '#f472b6', tx: '28px', delay: '0.03s' },
-  { left: '61%', color: '#38bdf8', tx: '-26px', delay: '0.08s' },
-  { left: '74%', color: '#a78bfa', tx: '20px', delay: '0.12s' },
-  { left: '86%', color: '#34d399', tx: '-22px', delay: '0.04s' },
-  { left: '93%', color: '#fbbf24', tx: '15px', delay: '0.09s' }
+  { left: '14%', color: '#34d399', tx: '-28px', delay: '0s' },
+  { left: '28%', color: '#818cf8', tx: '22px', delay: '0.05s' },
+  { left: '42%', color: '#fbbf24', tx: '-16px', delay: '0.09s' },
+  { left: '56%', color: '#f472b6', tx: '26px', delay: '0.03s' },
+  { left: '70%', color: '#38bdf8', tx: '-24px', delay: '0.07s' },
+  { left: '84%', color: '#fbbf24', tx: '18px', delay: '0.11s' }
 ];
 
 const ConfettiBurst = memo(({ active }) => {
   if (!active) return null;
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-3 h-36 overflow-hidden z-20">
+    <div className="pointer-events-none absolute inset-x-0 top-2 h-36 overflow-hidden z-20">
       {CONFETTI_PIECES.map((p, i) => (
         <span
           key={i}
@@ -382,180 +367,119 @@ const ToastBanner = memo(({ message }) => {
 });
 
 // ============================================================================
-// อนิเมชั่นการปีนหอคอยตามคะแนน (TOWER CLIMB ANIMATION COMPONENT)
+// อนิเมชั่นปีนหอคอย (TOWER CLIMB VISUALIZER)
 // ============================================================================
-const TowerClimbVisual = memo(({ climbers = [], lang = 'th', animTrigger = 0 }) => {
-  const [animReady, setAnimReady] = useState(false);
+const TowerClimbWidget = memo(({ score, avatar, lastGain, lang, compact = false }) => {
+  const floor = Math.floor((score || 0) / 50);
+  const progressPct = Math.min(94, Math.max(6, ((score || 0) / 1000) * 100));
 
-  useEffect(() => {
-    setAnimReady(false);
-    const id = setTimeout(() => setAnimReady(true), 70);
-    return () => clearTimeout(id);
-  }, [animTrigger]);
-
-  const maxScore = useMemo(() => {
-    const highest = climbers.reduce((m, c) => Math.max(m, c.score || 0), 0);
-    return Math.max(400, Math.ceil((highest + 160) / 200) * 200);
-  }, [climbers]);
-
-  const topClimberScore = useMemo(
-    () => climbers.reduce((m, c) => Math.max(m, c.score || 0), 0),
-    [climbers]
-  );
-
-  // เปลี่ยนบรรยากาศท้องฟ้าตามความสูงของหอคอย
-  const zoneInfo = useMemo(() => {
-    if (topClimberScore >= 1000) {
+  const zone = useMemo(() => {
+    if (floor >= 20) {
       return {
-        bg: 'from-[#030510] via-[#130d2e] to-[#1e1b4b]',
-        badge: lang === 'th' ? '🌌 โซนอวกาศ (Cosmic Peak)' : '🌌 Cosmic Peak',
-        stars: true
+        th: 'ยอดหอคอยจักรวาล',
+        en: 'Cosmic Summit',
+        bg: 'from-amber-950/80 via-purple-950/70 to-slate-900',
+        badge: 'text-amber-300 bg-amber-500/20 border-amber-500/40',
+        bar: 'from-amber-400 via-orange-500 to-rose-500'
       };
     }
-    if (topClimberScore >= 600) {
+    if (floor >= 12) {
       return {
-        bg: 'from-[#1a1033] via-[#3b153c] to-[#1e1b4b]',
-        badge: lang === 'th' ? '🌅 ชั้นบรรยากาศ (Stratosphere)' : '🌅 Stratosphere',
-        stars: true
+        th: 'หอคอยดารา',
+        en: 'Starlight Bastion',
+        bg: 'from-indigo-950/80 via-purple-950/70 to-slate-900',
+        badge: 'text-purple-300 bg-purple-500/20 border-purple-500/40',
+        bar: 'from-indigo-400 via-purple-500 to-pink-500'
       };
     }
-    if (topClimberScore >= 250) {
+    if (floor >= 5) {
       return {
-        bg: 'from-[#0c2340] via-[#172554] to-[#0f172a]',
-        badge: lang === 'th' ? '☁️ เหนือก้อนเมฆ (Skyline)' : '☁️ Above the Clouds',
-        stars: false
+        th: 'ชั้นเมฆหมอก',
+        en: 'Cloud Spire',
+        bg: 'from-sky-950/80 via-indigo-950/70 to-slate-900',
+        badge: 'text-sky-300 bg-sky-500/20 border-sky-500/40',
+        bar: 'from-emerald-400 via-teal-500 to-sky-500'
       };
     }
     return {
-      bg: 'from-[#0f172a] via-[#111c33] to-[#0b2924]',
-      badge: lang === 'th' ? '🗼 ฐานหอคอย (Tower Base)' : '🗼 Tower Base',
-      stars: false
+      th: 'ฐานหอคอย',
+      en: 'Tower Base',
+      bg: 'from-slate-900 via-slate-900 to-indigo-950/50',
+      badge: 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30',
+      bar: 'from-emerald-500 to-indigo-500'
     };
-  }, [topClimberScore, lang]);
+  }, [floor]);
 
-  const milestones = [1, 0.75, 0.5, 0.25, 0];
+  const milestones = [
+    { label: 'F20+', pct: 88 },
+    { label: 'F12', pct: 60 },
+    { label: 'F5', pct: 30 },
+    { label: 'F0', pct: 6 }
+  ];
 
   return (
     <div
-      className={`relative w-full h-56 sm:h-64 rounded-3xl overflow-hidden border border-slate-700/80 bg-gradient-to-b ${zoneInfo.bg} shadow-inner mb-5`}
+      className={`relative rounded-2xl border border-slate-700/80 bg-gradient-to-br ${zone.bg} p-3.5 sm:p-4 mb-5 overflow-hidden transition-colors duration-700`}
     >
-      {/* ดาวระยิบระยับเมื่อปีนสูง */}
-      {zoneInfo.stars && (
-        <div className="absolute inset-0 pointer-events-none">
-          {[
-            { top: '12%', left: '14%', d: '0s' },
-            { top: '22%', left: '80%', d: '0.6s' },
-            { top: '34%', left: '24%', d: '1.1s' },
-            { top: '18%', left: '62%', d: '0.3s' },
-            { top: '44%', left: '88%', d: '0.9s' },
-            { top: '28%', left: '10%', d: '1.4s' }
-          ].map((s, idx) => (
-            <span
-              key={idx}
-              style={{ top: s.top, left: s.left, animationDelay: s.d }}
-              className="anim-twinkle absolute w-1.5 h-1.5 rounded-full bg-white"
-            />
-          ))}
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <Mountain className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-xs font-black text-white flex items-center gap-1.5">
+              <span>{lang === 'th' ? `หอคอยชั้นที่ ${floor}` : `Tower Floor ${floor}`}</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${zone.badge}`}>
+                {lang === 'th' ? zone.th : zone.en}
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-400">
+              {lang === 'th' ? `ความสูงสะสม: ${score} แต้ม` : `Altitude Score: ${score} pts`}
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* ป้ายโซนความสูง */}
-      <div className="absolute top-3 left-3 z-20 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-sm border border-white/10 text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
-        <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-        {zoneInfo.badge}
+        {lastGain && lastGain.points > 0 && (
+          <div
+            key={lastGain.id}
+            className="anim-climb-badge px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-xs font-black shadow-lg"
+          >
+            +{lastGain.floors} {lang === 'th' ? 'ชั้น' : 'Fl'} • +{lastGain.points}
+          </div>
+        )}
       </div>
 
-      {/* ป้ายความสูงสูงสุด */}
-      <div className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-full bg-black/45 backdrop-blur-sm border border-amber-400/30 text-[11px] font-black text-amber-300">
-        {topClimberScore}m / {maxScore}m
-      </div>
-
-      {/* เส้นระดับความสูงของหอคอย */}
-      <div className="absolute inset-x-3 inset-y-6 flex flex-col justify-between pointer-events-none">
-        {milestones.map((ratio, idx) => (
-          <div key={idx} className="flex items-center gap-2">
-            <span className="text-[10px] font-mono text-slate-400/80 w-10 text-right">
-              {Math.round(maxScore * ratio)}m
-            </span>
-            <div className="flex-1 border-t border-dashed border-slate-500/25" />
+      {/* Visual Tower Track (Vertical Shaft) */}
+      <div className={`relative w-full ${compact ? 'h-24' : 'h-32'} bg-[#060a12]/90 rounded-xl border border-slate-800 overflow-hidden flex items-center justify-center`}>
+        {/* Horizontal Floor Grid Lines */}
+        {milestones.map((m) => (
+          <div
+            key={m.label}
+            style={{ bottom: `${m.pct}%` }}
+            className="absolute inset-x-0 border-t border-dashed border-slate-800 flex items-center justify-between px-3 pointer-events-none"
+          >
+            <span className="text-[10px] font-mono text-slate-500">{m.label}</span>
+            <span className="text-[10px] font-mono text-slate-600">═══</span>
           </div>
         ))}
-      </div>
 
-      {/* ตัวหอคอยตรงกลาง */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-36 sm:w-44 h-[90%] bg-slate-900/75 border-x-2 border-t-2 border-indigo-400/30 rounded-t-2xl shadow-2xl overflow-hidden pointer-events-none">
-        {/* แสงเสากลาง */}
-        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-1 bg-gradient-to-t from-emerald-500/30 via-indigo-400/30 to-amber-400/40" />
-        {/* หน้าต่างหอคอยเรียงเป็นชั้น ๆ */}
-        <div className="grid grid-cols-3 gap-2.5 p-3 pt-4 opacity-50">
-          {Array.from({ length: 18 }).map((_, i) => (
-            <div
-              key={i}
-              className={`h-2.5 rounded-sm ${
-                i % 4 === 0 ? 'bg-amber-300/60' : i % 3 === 0 ? 'bg-indigo-400/50' : 'bg-slate-700/70'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* พื้นฐานหอคอย */}
-      <div className="absolute bottom-0 inset-x-0 h-3 bg-gradient-to-r from-emerald-950 via-emerald-700/50 to-emerald-950 border-t border-emerald-400/30" />
-
-      {/* นักปีนหอคอย (รองรับ 1 คน หรือ หลายคนพร้อมกัน) */}
-      <div className="absolute inset-x-12 bottom-3 top-8 z-10">
-        {climbers.map((c, idx) => {
-          const targetScore = animReady ? c.score || 0 : c.prevScore ?? c.score ?? 0;
-          const pctHeight = Math.min(92, Math.max(2, (targetScore / maxScore) * 90));
-          const leftPercent =
-            climbers.length === 1
-              ? 50
-              : 18 + (idx / Math.max(1, climbers.length - 1)) * 64;
-          const gained = (c.lastDelta || 0) > 0;
-          const failed = c.isTrap && animReady;
-
-          return (
-            <div
-              key={c.id || idx}
-              style={{
-                left: `${leftPercent}%`,
-                bottom: `${pctHeight}%`,
-                transition: 'bottom 1.15s cubic-bezier(0.22, 1, 0.36, 1)'
-              }}
-              className="absolute -translate-x-1/2 flex flex-col items-center"
-            >
-              {/* ป้ายคะแนนที่พุ่งขึ้น */}
-              {animReady && gained && (
-                <span className="anim-delta mb-1 px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black text-[10px] shadow-lg whitespace-nowrap">
-                  +{c.lastDelta}m 🚀
-                </span>
-              )}
-              {failed && (
-                <span className="anim-pop mb-1 px-2 py-0.5 rounded-full bg-rose-500 text-white font-black text-[10px] shadow-lg whitespace-nowrap">
-                  0m 💥
-                </span>
-              )}
-
-              {/* อวาตาร์นักปีนหอคอย */}
-              <div
-                className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-xl sm:text-2xl shadow-xl border-2 ${
-                  gained && animReady
-                    ? 'anim-climb-hop bg-emerald-500/25 border-emerald-400 shadow-emerald-500/40'
-                    : failed
-                    ? 'anim-shake bg-rose-500/25 border-rose-400'
-                    : 'bg-slate-800/95 border-indigo-400/70'
-                }`}
-              >
-                {c.avatar || '😎'}
-              </div>
-
-              {/* ชื่อและระดับความสูง */}
-              <div className="mt-1 px-2 py-0.5 rounded-lg bg-slate-950/90 border border-slate-700/80 text-[10px] font-bold text-white whitespace-nowrap shadow">
-                {c.name?.slice(0, 10)} • <span className="text-amber-300">{c.score || 0}m</span>
-              </div>
+        {/* Central Tower Pillar */}
+        <div className="relative w-14 h-full bg-slate-900/90 border-x border-slate-700/70 flex flex-col justify-end">
+          {/* Glowing Climb Fill */}
+          <div
+            style={{ height: `${progressPct}%` }}
+            className={`w-full bg-gradient-to-t ${zone.bar} opacity-45 transition-all duration-1000 ease-out`}
+          />
+          {/* Animated Climber Avatar */}
+          <div
+            style={{ bottom: `calc(${progressPct}% - 14px)` }}
+            className="absolute left-1/2 -translate-x-1/2 transition-all duration-1000 ease-out z-10 flex flex-col items-center"
+          >
+            <div className="w-9 h-9 rounded-full bg-slate-950 border-2 border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.6)] flex items-center justify-center text-lg">
+              {avatar || '😎'}
             </div>
-          );
-        })}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -577,7 +501,7 @@ export default function App() {
   const [authError, setAuthError] = useState('');
   const [suggestRegister, setSuggestRegister] = useState(false);
 
-  // Navigation & Game Settings
+  // Navigation & Settings
   const [screen, setScreen] = useState('lobby');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [customCategory, setCustomCategory] = useState('');
@@ -590,31 +514,29 @@ export default function App() {
   const [hofLeaderboard, setHofLeaderboard] = useState([]);
   const [survivalLeaderboard, setSurvivalLeaderboard] = useState([]);
 
-  // Questions, Judging & FX
+  // Questions & Grading FX
   const [questions, setQuestions] = useState([]);
   const [questionSource, setQuestionSource] = useState('ai');
   const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [judgingAnswers, setJudgingAnswers] = useState(false);
+  const [gradingAnswer, setGradingAnswer] = useState(false);
   const [fxConfetti, setFxConfetti] = useState(false);
   const [fxShake, setFxShake] = useState(false);
-  const [towerAnimTick, setTowerAnimTick] = useState(0);
+  const [lastTowerGain, setLastTowerGain] = useState(null);
 
-  // Solo states (Text Input + AI Judge + Tower Climb)
+  // Solo states (Fill-in-the-blank)
   const [soloRound, setSoloRound] = useState(0);
   const [soloScore, setSoloScore] = useState(0);
-  const [soloPrevScore, setSoloPrevScore] = useState(0);
   const [soloStreak, setSoloStreak] = useState(0);
   const [soloBestStreak, setSoloBestStreak] = useState(0);
   const [soloAnswerInput, setSoloAnswerInput] = useState('');
   const [soloResult, setSoloResult] = useState(null);
   const [soloFinished, setSoloFinished] = useState(false);
 
-  // Survival states (3 Hearts + Endless + Tower Climb)
+  // Survival states (Fill-in-the-blank + 3 Hearts)
   const [survivalLives, setSurvivalLives] = useState(3);
   const [survivalRound, setSurvivalRound] = useState(1);
   const [survivalBatchIdx, setSurvivalBatchIdx] = useState(0);
   const [survivalScore, setSurvivalScore] = useState(0);
-  const [survivalPrevScore, setSurvivalPrevScore] = useState(0);
   const [survivalStreak, setSurvivalStreak] = useState(0);
   const [survivalBestStreak, setSurvivalBestStreak] = useState(0);
   const [survivalAnswerInput, setSurvivalAnswerInput] = useState('');
@@ -622,21 +544,20 @@ export default function App() {
   const [survivalFinished, setSurvivalFinished] = useState(false);
   const [survivalHealNotice, setSurvivalHealNotice] = useState(false);
 
-  // Local Pass & Play states (2–8 Players Secret Text Input + Batch AI Judge + Tower Climb)
+  // Local Pass & Play states (Fill-in-the-blank)
   const [localPlayers, setLocalPlayers] = useState([
-    { name: 'ผู้เล่น 1', avatar: '😎', score: 0, prevScore: 0 },
-    { name: 'ผู้เล่น 2', avatar: '🦊', score: 0, prevScore: 0 }
+    { name: 'ผู้เล่น 1', avatar: '😎', score: 0 },
+    { name: 'ผู้เล่น 2', avatar: '🦊', score: 0 }
   ]);
   const [localRound, setLocalRound] = useState(0);
   const [localTurnIndex, setLocalTurnIndex] = useState(0);
   const [localPrivacyScreen, setLocalPrivacyScreen] = useState(true);
-  const [localAnswerInput, setLocalAnswerInput] = useState('');
+  const [localInputText, setLocalInputText] = useState('');
   const [localAnswers, setLocalAnswers] = useState({});
-  const [localResults, setLocalResults] = useState({});
-  const [localReveal, setLocalReveal] = useState(false);
+  const [localResults, setLocalResults] = useState(null);
   const [localFinished, setLocalFinished] = useState(false);
 
-  // Online Multiplayer states (Text Input + Batch AI Judge + Tower Climb)
+  // Online Multiplayer states
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [activeRoomCode, setActiveRoomCode] = useState('');
   const [roomData, setRoomData] = useState(null);
@@ -665,7 +586,6 @@ export default function App() {
     setTimeout(() => setFxShake(false), 450);
   }, []);
 
-  // Load saved user & URL room code
   useEffect(() => {
     const saved = localStorage.getItem('reverse_trivia_user');
     if (saved) {
@@ -674,8 +594,8 @@ export default function App() {
         if (parsed?.id) {
           setUser(parsed);
           setLocalPlayers([
-            { name: parsed.displayName || parsed.id, avatar: parsed.avatar || '😎', score: 0, prevScore: 0 },
-            { name: 'ผู้เล่น 2', avatar: '🦊', score: 0, prevScore: 0 }
+            { name: parsed.displayName || parsed.id, avatar: parsed.avatar || '😎', score: 0 },
+            { name: 'ผู้เล่น 2', avatar: '🦊', score: 0 }
           ]);
         }
       } catch (e) {
@@ -687,7 +607,7 @@ export default function App() {
     if (roomParam) setRoomCodeInput(roomParam.toUpperCase());
   }, []);
 
-  // Subscribe to Hall of Fame & Survival Leaderboards
+  // Leaderboards
   useEffect(() => {
     if (!user) return;
     const qHof = query(collection(db, 'users'), orderBy('score', 'desc'), limit(10));
@@ -722,23 +642,14 @@ export default function App() {
     };
   }, [user]);
 
-  // Subscribe to Active Online Room
+  // Online Room Listener
   useEffect(() => {
     if (!activeRoomCode) return;
     const unsub = onSnapshot(
       doc(db, 'rooms', activeRoomCode),
       (snap) => {
         if (snap.exists()) {
-          const nextData = snap.data();
-          setRoomData((prev) => {
-            if (prev?.status !== 'reveal' && nextData.status === 'reveal') {
-              setTowerAnimTick((t) => t + 1);
-            }
-            if (prev?.currentRound !== nextData.currentRound) {
-              setOnlineAnswerInput('');
-            }
-            return nextData;
-          });
+          setRoomData(snap.data());
         } else {
           setOnlineError(lang === 'th' ? 'ไม่พบห้องนี้หรือห้องถูกปิดไปแล้ว' : 'Room not found');
           setActiveRoomCode('');
@@ -751,16 +662,16 @@ export default function App() {
     return () => unsub();
   }, [activeRoomCode, lang]);
 
-  // Universal Share Function
+  // Share Link Helper
   const shareLink = useCallback(
     async ({ title, text, url, isRoom = false }) => {
       const shareUrl = url || window.location.origin;
-      const shareTitle = title || 'Reverse Trivia — ทายสวนกระแส';
+      const shareTitle = title || 'Reverse Trivia — หอคอยทายสวนกระแส';
       const shareText =
         text ||
         (lang === 'th'
-          ? 'มาเล่น Reverse Trivia เติมคำตอบสวนกระแสและปีนหอคอยแข่งกัน!'
-          : 'Play Reverse Trivia — type unique answers and climb the tower!');
+          ? 'มาเล่น Reverse Trivia พิมพ์คำตอบสวนกระแสให้ AI ตรวจและปีนหอคอยกัน!'
+          : 'Play Reverse Trivia — type rare answers for AI grading and climb the tower!');
 
       if (navigator.share) {
         try {
@@ -782,24 +693,23 @@ export default function App() {
           setCopiedCode(true);
           setTimeout(() => setCopiedCode(false), 2000);
         }
-        showToast(lang === 'th' ? 'คัดลอกลิงก์ลงคลิปบอร์ดแล้ว!' : 'Link copied to clipboard!');
+        showToast(lang === 'th' ? 'คัดลอกลิงก์ลงคลิปบอร์ดแล้ว!' : 'Link copied!');
       } catch (e) {
-        showToast(lang === 'th' ? 'ไม่สามารถคัดลอกได้ กรุณาคัดลอก URL ด้านบน' : 'Copy failed');
+        showToast(lang === 'th' ? 'คัดลอก URL ด้านบนเพื่อแชร์ได้เลย' : 'Copy URL from address bar');
       }
     },
     [lang, showToast]
   );
 
-  // Category Ban Helpers
+  // Ban helpers
   const toggleBanPreset = useCallback(
     (catId) => {
       if (catId === 'all') return;
       setBannedCategories((prev) => {
         if (prev.includes(catId)) return prev.filter((id) => id !== catId);
-        const nonAllCount = CATEGORIES.length - 1;
-        const presetBannedCount = prev.filter((b) => CATEGORIES.some((c) => c.id === b)).length;
-        if (presetBannedCount >= nonAllCount - 1 && !customCategory.trim()) {
-          showToast(lang === 'th' ? 'ต้องเหลือหมวดหมู่ไว้อย่างน้อย 1 หมวดครับ' : 'Keep at least 1 category');
+        const presetBanned = prev.filter((b) => CATEGORIES.some((c) => c.id === b)).length;
+        if (presetBanned >= CATEGORIES.length - 2 && !customCategory.trim()) {
+          showToast(lang === 'th' ? 'ต้องเหลือหมวดหมู่ไว้อย่างน้อย 1 หมวด' : 'Keep at least 1 category');
           return prev;
         }
         if (selectedCategory === catId) setSelectedCategory('all');
@@ -817,10 +727,6 @@ export default function App() {
     }
     setCustomBanInput('');
   }, [bannedCategories, customBanInput]);
-
-  const removeBan = useCallback((tag) => {
-    setBannedCategories((prev) => prev.filter((item) => item !== tag));
-  }, []);
 
   const bannedLabels = useMemo(
     () =>
@@ -855,7 +761,7 @@ export default function App() {
         setAuthError(
           lang === 'th'
             ? `ไม่พบชื่อผู้เล่น "${rawName}" ในระบบ ต้องการสมัครเป็น ID ใหม่เลยไหมครับ?`
-            : `Player ID "${rawName}" not found. Register it now?`
+            : `Player ID "${rawName}" not found. Register now?`
         );
         setSuggestRegister(true);
         setAuthLoading(false);
@@ -882,8 +788,8 @@ export default function App() {
       setUser(loggedUser);
       localStorage.setItem('reverse_trivia_user', JSON.stringify(loggedUser));
       setLocalPlayers([
-        { name: loggedUser.displayName, avatar: loggedUser.avatar, score: 0, prevScore: 0 },
-        { name: lang === 'th' ? 'ผู้เล่น 2' : 'Player 2', avatar: '🦊', score: 0, prevScore: 0 }
+        { name: loggedUser.displayName, avatar: loggedUser.avatar, score: 0 },
+        { name: lang === 'th' ? 'ผู้เล่น 2' : 'Player 2', avatar: '🦊', score: 0 }
       ]);
     } catch (err) {
       setAuthError((lang === 'th' ? 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ: ' : 'DB Error: ') + err.message);
@@ -952,8 +858,8 @@ export default function App() {
       setUser(loggedUser);
       localStorage.setItem('reverse_trivia_user', JSON.stringify(loggedUser));
       setLocalPlayers([
-        { name: loggedUser.displayName, avatar: loggedUser.avatar, score: 0, prevScore: 0 },
-        { name: lang === 'th' ? 'ผู้เล่น 2' : 'Player 2', avatar: '🦊', score: 0, prevScore: 0 }
+        { name: loggedUser.displayName, avatar: loggedUser.avatar, score: 0 },
+        { name: lang === 'th' ? 'ผู้เล่น 2' : 'Player 2', avatar: '🦊', score: 0 }
       ]);
     } catch (err) {
       setAuthError((lang === 'th' ? 'สมัครสมาชิกไม่สำเร็จ: ' : 'Register failed: ') + err.message);
@@ -976,8 +882,8 @@ export default function App() {
     };
     setUser(guestUser);
     setLocalPlayers([
-      { name: guestUser.displayName, avatar: '👾', score: 0, prevScore: 0 },
-      { name: lang === 'th' ? 'ผู้เล่น 2' : 'Player 2', avatar: '🦊', score: 0, prevScore: 0 }
+      { name: guestUser.displayName, avatar: '👾', score: 0 },
+      { name: lang === 'th' ? 'ผู้เล่น 2' : 'Player 2', avatar: '🦊', score: 0 }
     ]);
   };
 
@@ -993,7 +899,9 @@ export default function App() {
     setSuggestRegister(false);
   };
 
-  // AI สร้างโจทย์ปลายเปิด (เติมคำตอบ) ตามหมวดหมู่ที่พิมพ์ + แบนหมวดหมู่
+  // =========================================================================
+  // AI Question Generator (Open-ended Fill-in-the-blank questions!)
+  // =========================================================================
   const fetchQuestions = useCallback(
     async (category, count, customTopicText = '', bans = []) => {
       setLoadingQuestions(true);
@@ -1007,19 +915,21 @@ export default function App() {
       });
       const banClause =
         bannedStrings.length > 0
-          ? `STRICTLY BAN / EXCLUDE any questions related to these forbidden topics: ${bannedStrings.join(', ')}.`
+          ? `STRICTLY BAN / EXCLUDE any topics related to: ${bannedStrings.join(', ')}.`
           : '';
 
       try {
-        const prompt = `Generate ${count} open-ended "Reverse Trivia" (fill-in-the-blank) questions in BOTH natural Thai and English specifically about: "${targetTopic}".
+        const prompt = `Generate ${count} open-ended fill-in-the-blank "Reverse Trivia" survey questions in BOTH Thai and English about: "${targetTopic}".
 ${banClause}
 Rules:
-- Each question asks the player to TYPE 1 valid answer that fits a broad category (with many possible correct answers), trying to pick the most obscure/uncommon valid answer.
-- Return ONLY a valid JSON array with no markdown or extra text:
-[{"question":{"th":"บอกชื่อ...มา 1 อย่าง","en":"Name 1 ..."},"hint":{"th":"คำใบ้สั้นๆ","en":"Short hint"},"commonExamples":["ตัวอย่างยอดฮิต1","ตัวอย่างยอดฮิต2"]}]`;
+- DO NOT make multiple choice options. Players will type a free-text answer!
+- Each question asks players to name ONE item/thing/action in a category where the goal is to pick a valid answer that the FEWEST people in a 100-person survey would say.
+- Include "commonKeywords" (array of 5-8 mainstream answer words in Thai & English) and "crowdSummary" (top 3 mainstream answers with % in th & en).
+- Return ONLY a valid JSON array with no markdown:
+[{"question":{"th":"...","en":"..."},"commonKeywords":["..."],"crowdSummary":{"th":"คำตอบยอดฮิต: ...","en":"Top Crowd Answers: ..."}}]`;
 
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 11000);
+        const timer = setTimeout(() => controller.abort(), 10000);
         const res = await fetch('/api/gemini', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1031,80 +941,68 @@ Rules:
         if (!res.ok) throw new Error('fallback');
         const data = await res.json();
         const rawText = data?.text || data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        const cleanedText = rawText.replace(/```json|```/gi, '').trim();
-        const jsonMatch = cleanedText.match(/\[[\s\S]*\]/);
-        const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : cleanedText);
+        const cleaned = rawText.replace(/```json|```/gi, '').trim();
+        const match = cleaned.match(/\[[\s\S]*\]/);
+        const parsed = JSON.parse(match ? match[0] : cleaned);
 
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const validList = parsed
-            .filter((q) => q?.question?.th || q?.question?.en)
-            .map((q) => ({
-              question: {
-                th: q.question.th || q.question.en,
-                en: q.question.en || q.question.th
-              },
-              hint: {
-                th: q.hint?.th || 'พิมพ์คำตอบที่ถูกต้องแต่คนนึกถึงน้อยที่สุด',
-                en: q.hint?.en || 'Type a valid answer few people think of'
-              },
-              commonExamples: Array.isArray(q.commonExamples) ? q.commonExamples : []
-            }));
-          if (validList.length > 0) {
-            setQuestionSource(trimmedTopic ? 'ai-custom' : 'ai');
-            setLoadingQuestions(false);
-            return validList.slice(0, count);
-          }
+        if (Array.isArray(parsed) && parsed.length >= Math.min(count, 3)) {
+          const valid = parsed.slice(0, count).map((item) => ({
+            question: {
+              th: item?.question?.th || item?.question?.en || 'ทายคำตอบที่คนเลือกน้อยที่สุด',
+              en: item?.question?.en || item?.question?.th || 'Name the least common answer'
+            },
+            commonKeywords: Array.isArray(item?.commonKeywords) ? item.commonKeywords : [],
+            crowdSummary: {
+              th: item?.crowdSummary?.th || 'คำตอบยอดฮิต: ขึ้นอยู่กับผลโหวตของคนส่วนใหญ่',
+              en: item?.crowdSummary?.en || 'Top Crowd Answers: Common everyday choices'
+            }
+          }));
+          setQuestionSource(trimmedTopic ? 'ai-custom' : 'ai');
+          setLoadingQuestions(false);
+          return valid;
         }
         throw new Error('fallback');
       } catch (e) {
-        const allowedFallback = FALLBACK_QUESTIONS.filter((q) => !bans.includes(q.category));
-        const categoryMatched =
+        const allowed = FALLBACK_QUESTIONS.filter((q) => !bans.includes(q.category));
+        const matched =
           category === 'all' || trimmedTopic
-            ? allowedFallback
-            : allowedFallback.filter((q) => q.category === category);
-        const pool =
-          categoryMatched.length >= count
-            ? categoryMatched
-            : allowedFallback.length > 0
-            ? allowedFallback
-            : FALLBACK_QUESTIONS;
+            ? allowed
+            : allowed.filter((q) => q.category === category);
+        const pool = matched.length >= count ? matched : allowed.length > 0 ? allowed : FALLBACK_QUESTIONS;
         const shuffled = [...pool].sort(() => Math.random() - 0.5);
         setQuestionSource('classic');
         setLoadingQuestions(false);
-        if (trimmedTopic) {
-          showToast(
-            lang === 'th'
-              ? 'AI ตอบช้า ใช้ชุดคำถามสำรองชั่วคราวครับ'
-              : 'AI timed out, using classic questions'
-          );
-        }
         return shuffled.slice(0, count);
       }
     },
-    [lang, showToast]
+    []
   );
 
-  // AI ตรวจคำตอบแบบเติมคำ (รองรับตรวจ 1 คน หรือ ตรวจทีเดียวหลายคน)
-  const judgeAnswersWithAI = useCallback(async (questionObj, submissions) => {
-    setJudgingAnswers(true);
+  // =========================================================================
+  // AI Answer Grader (ตรวจคำตอบแบบเติมคำ + ประเมินความหายาก + ชั้นหอคอย)
+  // =========================================================================
+  const gradeSingleAnswer = useCallback(async (questionObj, userAnswer, currentStreak = 0) => {
+    setGradingAnswer(true);
     try {
-      const prompt = `You are the strict but witty judge for a "Reverse Trivia" game.
+      const prompt = `You are the AI Judge for a "Reverse Trivia" (ทายสวนกระแส) fill-in-the-blank game.
 Question (TH): "${questionObj.question.th}"
 Question (EN): "${questionObj.question.en}"
+Player's Typed Answer: "${userAnswer}"
 
-Evaluate each player's typed answer below:
-${JSON.stringify(submissions.map((s) => ({ key: String(s.key), answer: s.answer })))}
+Evaluate the player's answer strictly and fairly:
+1. "isValid": true ONLY if the answer genuinely and logically answers the question. If it is gibberish, nonsense, off-topic, or an empty trick, set isValid=false, pct=100, points=0, floors=0, isCrowdTrap=true.
+2. "pct": integer 1-100 estimating what % of 100 everyday people would give this exact answer.
+   - Very obvious/top mainstream answers = 35-65% (isCrowdTrap=true, points=0, floors=0).
+   - Somewhat common answers = 20-34% (points=80, floors=1).
+   - Valid, clever, rare answers = 3-19% (points=${170 + currentStreak * 25}, floors=3, isReverseWinner=true).
+3. "comment": witty 1-sentence feedback in BOTH Thai ("th") and English ("en").
+4. "crowdSummary": list the top 3 mainstream crowd answers with % in BOTH "th" and "en".
 
-Rules for each answer:
-1. "valid": true if the answer factually and genuinely fits the question (accept Thai, English, minor typos, or nicknames). false if wrong, nonsense, empty, or does not fit the question.
-2. "crowdPct": integer 1 to 99 estimating how many people out of 100 would think of this answer (1-20 = very rare/creative, 21-64 = moderate, 65-99 = super common/obvious crowd favorite). If valid is false, set crowdPct to 100.
-3. "feedback": short 1-sentence explanation in BOTH "th" and "en".
-
-Return ONLY a valid JSON array matching each key:
-[{"key":"0","valid":true,"crowdPct":14,"feedback":{"th":"...","en":"..."}}]`;
+Return ONLY valid JSON with no markdown:
+{"isValid":true,"pct":12,"points":170,"floors":3,"isReverseWinner":true,"isCrowdTrap":false,"comment":{"th":"...","en":"..."},"crowdSummary":{"th":"คำตอบยอดฮิต: ...","en":"Top Crowd Answers: ..."}}`;
 
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 11000);
+      const timer = setTimeout(() => controller.abort(), 9000);
       const res = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1113,43 +1011,133 @@ Return ONLY a valid JSON array matching each key:
       });
       clearTimeout(timer);
 
-      if (!res.ok) throw new Error('judge-fallback');
+      if (!res.ok) throw new Error('fallback');
       const data = await res.json();
       const rawText = data?.text || data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const cleaned = rawText.replace(/```json|```/gi, '').trim();
-      const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
-      const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : cleaned);
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(match ? match[0] : cleaned);
 
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        const resultMap = {};
-        parsed.forEach((r) => {
-          resultMap[String(r.key)] = {
-            valid: Boolean(r.valid),
-            crowdPct: Number(r.crowdPct) || 50,
-            feedback: {
-              th: r.feedback?.th || r.feedback?.en || 'ตรวจคำตอบเรียบร้อย',
-              en: r.feedback?.en || r.feedback?.th || 'Answer evaluated'
-            }
-          };
-        });
-        const complete = submissions.map((s) => {
-          const found = resultMap[String(s.key)];
-          return found
-            ? { key: String(s.key), ...found }
-            : localFallbackJudge(questionObj, [s])[0];
-        });
-        setJudgingAnswers(false);
-        return complete;
+      if (typeof parsed?.pct === 'number') {
+        const isCrowdTrap = parsed.isValid === false || parsed.pct >= 32 || parsed.isCrowdTrap === true;
+        const isReverseWinner = !isCrowdTrap && parsed.pct <= 18;
+        const points = isCrowdTrap
+          ? 0
+          : Number(parsed.points) > 0
+          ? Number(parsed.points)
+          : isReverseWinner
+          ? 170 + currentStreak * 25
+          : 90;
+        const floors = isCrowdTrap ? 0 : Math.max(1, Math.min(4, Number(parsed.floors) || (isReverseWinner ? 3 : 1)));
+
+        setGradingAnswer(false);
+        return {
+          isValid: parsed.isValid !== false,
+          pct: Math.max(1, Math.min(100, Math.round(parsed.pct))),
+          points,
+          floors,
+          isReverseWinner,
+          isCrowdTrap,
+          comment: {
+            th: parsed?.comment?.th || (isCrowdTrap ? 'ใจตรงกับคนส่วนใหญ่!' : 'คำตอบสวนกระแสยอดเยี่ยม!'),
+            en: parsed?.comment?.en || (isCrowdTrap ? 'Too mainstream!' : 'Great rare answer!')
+          },
+          crowdSummary: {
+            th: parsed?.crowdSummary?.th || questionObj?.crowdSummary?.th || '',
+            en: parsed?.crowdSummary?.en || questionObj?.crowdSummary?.en || ''
+          }
+        };
       }
-      throw new Error('judge-fallback');
+      throw new Error('fallback');
     } catch (e) {
-      const fallbackRes = localFallbackJudge(questionObj, submissions);
-      setJudgingAnswers(false);
-      return fallbackRes;
+      setGradingAnswer(false);
+      return evaluateAnswerLocally(questionObj, userAnswer, currentStreak);
     }
   }, []);
 
-  // Save Progress to Firestore (Hall of Fame + Survival)
+  // Batch AI Grader for Multiplayer (Pass & Play / Online Room)
+  const gradeBatchAnswers = useCallback(async (questionObj, entries) => {
+    setGradingAnswer(true);
+    try {
+      const formattedList = entries.map((e) => `ID "${e.id}" (${e.name}): "${e.answer}"`).join('\n');
+      const prompt = `You are the AI Judge for a multiplayer "Reverse Trivia" fill-in-the-blank game.
+Question (TH): "${questionObj.question.th}"
+Question (EN): "${questionObj.question.en}"
+
+Players' Typed Answers:
+${formattedList}
+
+Evaluate EACH player's answer:
+- "isValid": true only if it validly answers the question (gibberish/blank = false, pct=100, points=0, floors=0).
+- "pct": integer 1-100 (how common in a 100-person survey; lower = rarer = better!).
+- "points": 0 if invalid or pct >= 35; 80-110 if pct 20-34; 160-220 if pct <= 19.
+- "floors": 0 if 0 pts, 1-3 based on points.
+- "comment": short 1-sentence comment in Thai ("th") and English ("en").
+
+Return ONLY valid JSON:
+{"crowdSummary":{"th":"คำตอบยอดฮิต: ...","en":"Top Crowd Answers: ..."},"results":{"PLAYER_ID":{"isValid":true,"pct":14,"points":180,"floors":3,"comment":{"th":"...","en":"..."}}}}`;
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, contents: [{ parts: [{ text: prompt }] }] }),
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+
+      if (!res.ok) throw new Error('fallback');
+      const data = await res.json();
+      const rawText = data?.text || data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const cleaned = rawText.replace(/```json|```/gi, '').trim();
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      const parsed = JSON.parse(match ? match[0] : cleaned);
+
+      if (parsed?.results) {
+        const mapped = {};
+        entries.forEach((entry) => {
+          const r = parsed.results[entry.id];
+          if (r && typeof r.pct === 'number') {
+            const trap = r.isValid === false || r.pct >= 35;
+            mapped[entry.id] = {
+              isValid: r.isValid !== false,
+              pct: Math.max(1, Math.min(100, Math.round(r.pct))),
+              points: trap ? 0 : Math.max(50, Number(r.points) || 120),
+              floors: trap ? 0 : Math.max(1, Math.min(4, Number(r.floors) || 2)),
+              comment: {
+                th: r?.comment?.th || (trap ? 'ตรงกับกระแสหลัก' : 'คำตอบแหวกแนว!'),
+                en: r?.comment?.en || (trap ? 'Too common!' : 'Rare pick!')
+              }
+            };
+          } else {
+            mapped[entry.id] = evaluateAnswerLocally(questionObj, entry.answer, 0);
+          }
+        });
+        setGradingAnswer(false);
+        return {
+          crowdSummary: {
+            th: parsed?.crowdSummary?.th || questionObj?.crowdSummary?.th || '',
+            en: parsed?.crowdSummary?.en || questionObj?.crowdSummary?.en || ''
+          },
+          results: mapped
+        };
+      }
+      throw new Error('fallback');
+    } catch (e) {
+      const mapped = {};
+      entries.forEach((entry) => {
+        mapped[entry.id] = evaluateAnswerLocally(questionObj, entry.answer, 0);
+      });
+      setGradingAnswer(false);
+      return {
+        crowdSummary: questionObj?.crowdSummary || { th: '', en: '' },
+        results: mapped
+      };
+    }
+  }, []);
+
+  // Save Progress to Firestore
   const savePlayerProgress = useCallback(
     async ({ earnedScore = 0, newBestStreak = 0, survivalRunScore = 0, survivalRounds = 0 }) => {
       if (!user || user.isGuest) return;
@@ -1182,46 +1170,39 @@ Return ONLY a valid JSON array matching each key:
   );
 
   // =========================================================================
-  // SOLO MODE HANDLERS (เติมคำตอบ + AI ตรวจ + ปีนหอคอย)
+  // Solo Mode Handlers
   // =========================================================================
   const startSoloGame = async () => {
     const qs = await fetchQuestions(selectedCategory, totalRounds, customCategory, bannedCategories);
     setQuestions(qs);
     setSoloRound(0);
     setSoloScore(0);
-    setSoloPrevScore(0);
     setSoloStreak(0);
     setSoloBestStreak(0);
     setSoloAnswerInput('');
     setSoloResult(null);
     setSoloFinished(false);
-    setTowerAnimTick((t) => t + 1);
+    setLastTowerGain(null);
     setScreen('solo');
   };
 
   const handleSoloSubmit = async (e) => {
     e.preventDefault();
-    if (!soloAnswerInput.trim() || soloResult || judgingAnswers) return;
-    const currentQ = questions[soloRound];
-    const judgedList = await judgeAnswersWithAI(currentQ, [
-      { key: '0', playerName: user.displayName, answer: soloAnswerInput.trim() }
-    ]);
-    const judge = judgedList[0];
-    const scored = computeScoreFromJudge(judge, soloStreak, 'normal');
+    if (soloResult || gradingAnswer || !soloAnswerInput.trim()) return;
+    const res = await gradeSingleAnswer(questions[soloRound], soloAnswerInput.trim(), soloStreak);
+    setSoloResult(res);
 
-    const prev = soloScore;
-    const nextScore = prev + scored.points;
-    const nextStreak = scored.isReverseMaster ? soloStreak + 1 : 0;
+    if (res.points > 0) {
+      triggerConfetti();
+      setLastTowerGain({ id: Date.now(), points: res.points, floors: res.floors });
+    } else {
+      triggerShake();
+    }
 
-    setSoloPrevScore(prev);
-    setSoloScore(nextScore);
+    const nextStreak = res.isReverseWinner ? soloStreak + 1 : 0;
+    setSoloScore((p) => p + res.points);
     setSoloStreak(nextStreak);
-    setSoloBestStreak((b) => Math.max(b, nextStreak));
-    setSoloResult({ ...judge, ...scored, answer: soloAnswerInput.trim() });
-    setTowerAnimTick((t) => t + 1);
-
-    if (scored.isReverseMaster) triggerConfetti();
-    if (scored.isTrap) triggerShake();
+    setSoloBestStreak((p) => Math.max(p, nextStreak));
   };
 
   const handleSoloNext = async () => {
@@ -1237,7 +1218,7 @@ Return ONLY a valid JSON array matching each key:
   };
 
   // =========================================================================
-  // SURVIVAL MODE HANDLERS (3 หัวใจ + เติมคำตอบ + AI ตรวจ + ปีนหอคอย)
+  // Survival Mode Handlers
   // =========================================================================
   const startSurvivalGame = async () => {
     const qs = await fetchQuestions(selectedCategory, 5, customCategory, bannedCategories);
@@ -1246,51 +1227,44 @@ Return ONLY a valid JSON array matching each key:
     setSurvivalRound(1);
     setSurvivalBatchIdx(0);
     setSurvivalScore(0);
-    setSurvivalPrevScore(0);
     setSurvivalStreak(0);
     setSurvivalBestStreak(0);
     setSurvivalAnswerInput('');
     setSurvivalResult(null);
     setSurvivalFinished(false);
     setSurvivalHealNotice(false);
-    setTowerAnimTick((t) => t + 1);
+    setLastTowerGain(null);
     setScreen('survival');
   };
 
   const handleSurvivalSubmit = async (e) => {
     e.preventDefault();
-    if (!survivalAnswerInput.trim() || survivalResult || judgingAnswers) return;
+    if (survivalResult || gradingAnswer || !survivalAnswerInput.trim()) return;
     setSurvivalHealNotice(false);
 
-    const currentQ = questions[survivalBatchIdx];
-    const judgedList = await judgeAnswersWithAI(currentQ, [
-      { key: '0', playerName: user.displayName, answer: survivalAnswerInput.trim() }
-    ]);
-    const judge = judgedList[0];
-    const scored = computeScoreFromJudge(judge, survivalStreak, 'survival');
+    const res = await gradeSingleAnswer(questions[survivalBatchIdx], survivalAnswerInput.trim(), survivalStreak);
+    setSurvivalResult(res);
 
-    const prev = survivalScore;
-    const nextScore = prev + scored.points;
-    const nextStreak = scored.isReverseMaster ? survivalStreak + 1 : 0;
+    const nextScore = survivalScore + res.points;
+    const nextStreak = res.isReverseWinner ? survivalStreak + 1 : 0;
     const nextBestStreak = Math.max(survivalBestStreak, nextStreak);
-    let nextLives = scored.isTrap ? survivalLives - 1 : survivalLives;
+    let nextLives = res.isCrowdTrap ? survivalLives - 1 : survivalLives;
 
-    if (scored.isReverseMaster) {
+    if (res.points > 0) {
       triggerConfetti();
-      if (nextStreak > 0 && nextStreak % 3 === 0 && nextLives < 3) {
+      setLastTowerGain({ id: Date.now(), points: res.points, floors: res.floors });
+      if (res.isReverseWinner && nextStreak > 0 && nextStreak % 3 === 0 && nextLives < 3) {
         nextLives += 1;
         setSurvivalHealNotice(true);
       }
+    } else {
+      triggerShake();
     }
-    if (scored.isTrap) triggerShake();
 
-    setSurvivalPrevScore(prev);
     setSurvivalScore(nextScore);
     setSurvivalStreak(nextStreak);
     setSurvivalBestStreak(nextBestStreak);
     setSurvivalLives(nextLives);
-    setSurvivalResult({ ...judge, ...scored, answer: survivalAnswerInput.trim() });
-    setTowerAnimTick((t) => t + 1);
 
     if (nextLives <= 0) {
       setTimeout(async () => {
@@ -1301,7 +1275,7 @@ Return ONLY a valid JSON array matching each key:
           survivalRunScore: nextScore,
           survivalRounds: survivalRound
         });
-      }, 1500);
+      }, 1300);
     }
   };
 
@@ -1311,31 +1285,29 @@ Return ONLY a valid JSON array matching each key:
       return;
     }
     setSurvivalHealNotice(false);
-    setSurvivalAnswerInput('');
-    setSurvivalResult(null);
-
     if (survivalBatchIdx + 1 < questions.length) {
       setSurvivalBatchIdx((p) => p + 1);
       setSurvivalRound((p) => p + 1);
+      setSurvivalAnswerInput('');
+      setSurvivalResult(null);
     } else {
       const nextBatch = await fetchQuestions(selectedCategory, 5, customCategory, bannedCategories);
       setQuestions(nextBatch);
       setSurvivalBatchIdx(0);
       setSurvivalRound((p) => p + 1);
+      setSurvivalAnswerInput('');
+      setSurvivalResult(null);
     }
   };
 
   // =========================================================================
-  // PASS & PLAY HANDLERS (หลายคนในเครื่องเดียว + พิมพ์คำตอบลับ + AI ตรวจ + ปีนหอคอย)
+  // Local Pass & Play Handlers (Fill-in-the-blank)
   // =========================================================================
   const startLocalGame = async () => {
     const cleaned = localPlayers.map((p, idx) => ({
       ...p,
       name: p.name.trim() || (lang === 'th' ? `ผู้เล่น ${idx + 1}` : `Player ${idx + 1}`),
-      score: 0,
-      prevScore: 0,
-      lastDelta: 0,
-      isTrap: false
+      score: 0
     }));
     setLocalPlayers(cleaned);
     const qs = await fetchQuestions(selectedCategory, totalRounds, customCategory, bannedCategories);
@@ -1343,52 +1315,41 @@ Return ONLY a valid JSON array matching each key:
     setLocalRound(0);
     setLocalTurnIndex(0);
     setLocalPrivacyScreen(true);
-    setLocalAnswerInput('');
+    setLocalInputText('');
     setLocalAnswers({});
-    setLocalResults({});
-    setLocalReveal(false);
+    setLocalResults(null);
     setLocalFinished(false);
     setScreen('local_game');
   };
 
   const handleLocalSecretSubmit = async (e) => {
     e.preventDefault();
-    if (!localAnswerInput.trim() || judgingAnswers) return;
-    const updatedAnswers = { ...localAnswers, [localTurnIndex]: localAnswerInput.trim() };
+    if (!localInputText.trim() || gradingAnswer) return;
+    const updatedAnswers = { ...localAnswers, [localTurnIndex]: localInputText.trim() };
     setLocalAnswers(updatedAnswers);
-    setLocalAnswerInput('');
+    setLocalInputText('');
 
     if (localTurnIndex + 1 < localPlayers.length) {
       setLocalTurnIndex(localTurnIndex + 1);
       setLocalPrivacyScreen(true);
     } else {
-      // ครบทุกคนแล้ว ส่งให้ AI ตรวจคำตอบพร้อมกัน
-      const currentQ = questions[localRound];
-      const submissions = localPlayers.map((p, idx) => ({
-        key: String(idx),
-        playerName: p.name,
-        answer: updatedAnswers[idx] || ''
+      const entries = localPlayers.map((p, idx) => ({
+        id: String(idx),
+        name: p.name,
+        answer: updatedAnswers[idx]
       }));
-      const judged = await judgeAnswersWithAI(currentQ, submissions);
-
-      const resMap = {};
-      const updatedPlayers = localPlayers.map((p, idx) => {
-        const j = judged.find((x) => String(x.key) === String(idx)) || judged[idx];
-        const scored = computeScoreFromJudge(j, 0, 'normal');
-        resMap[idx] = { ...j, ...scored, answer: updatedAnswers[idx] };
+      const graded = await gradeBatchAnswers(questions[localRound], entries);
+      const scored = localPlayers.map((p, idx) => {
+        const r = graded.results[String(idx)];
         return {
           ...p,
-          prevScore: p.score,
-          score: p.score + scored.points,
-          lastDelta: scored.points,
-          isTrap: scored.isTrap
+          lastAnswer: updatedAnswers[idx],
+          lastEval: r,
+          score: p.score + (r?.points || 0)
         };
       });
-
-      setLocalResults(resMap);
-      setLocalPlayers(updatedPlayers);
-      setLocalReveal(true);
-      setTowerAnimTick((t) => t + 1);
+      setLocalPlayers(scored);
+      setLocalResults(graded);
       triggerConfetti();
     }
   };
@@ -1398,10 +1359,9 @@ Return ONLY a valid JSON array matching each key:
       setLocalRound((p) => p + 1);
       setLocalTurnIndex(0);
       setLocalPrivacyScreen(true);
-      setLocalAnswerInput('');
+      setLocalInputText('');
       setLocalAnswers({});
-      setLocalResults({});
-      setLocalReveal(false);
+      setLocalResults(null);
     } else {
       setLocalFinished(true);
       triggerConfetti();
@@ -1412,7 +1372,7 @@ Return ONLY a valid JSON array matching each key:
   };
 
   // =========================================================================
-  // ONLINE MULTIPLAYER HANDLERS (เติมคำตอบ + AI ตรวจ + ปีนหอคอยเรียลไทม์)
+  // Online Multiplayer Handlers (Fill-in-the-blank)
   // =========================================================================
   const createOnlineRoom = async () => {
     setOnlineError('');
@@ -1427,15 +1387,15 @@ Return ONLY a valid JSON array matching each key:
         currentRound: 0,
         topicLabel: customCategory.trim() || (CATEGORIES.find((c) => c.id === selectedCategory)?.th ?? 'สุ่มทุกหมวด'),
         questions: qs,
+        crowdSummary: null,
         players: {
           [user.id]: {
             id: user.id,
             displayName: user.displayName,
             avatar: user.avatar || '😎',
             score: 0,
-            prevScore: 0,
             currentAnswer: null,
-            lastResult: null
+            lastEval: null
           }
         },
         createdAt: serverTimestamp()
@@ -1472,9 +1432,8 @@ Return ONLY a valid JSON array matching each key:
           displayName: user.displayName,
           avatar: user.avatar || '😎',
           score: 0,
-          prevScore: 0,
           currentAnswer: null,
-          lastResult: null
+          lastEval: null
         }
       });
       setActiveRoomCode(code);
@@ -1487,70 +1446,59 @@ Return ONLY a valid JSON array matching each key:
     }
   };
 
-  const evaluateOnlineRoom = async (playersObj) => {
-    if (!roomData || !activeRoomCode) return;
+  const submitOnlineAnswer = async (e) => {
+    e.preventDefault();
+    if (!roomData || !activeRoomCode || !onlineAnswerInput.trim()) return;
+    const me = roomData.players?.[user.id];
+    if (!me || me.currentAnswer !== null) return;
+
+    const text = onlineAnswerInput.trim();
+    setOnlineAnswerInput('');
+
+    await updateDoc(doc(db, 'rooms', activeRoomCode), {
+      [`players.${user.id}.currentAnswer`]: text
+    });
+  };
+
+  const gradeAndRevealOnlineRoom = async () => {
+    if (!roomData || !activeRoomCode || gradingAnswer) return;
     const currentQ = roomData.questions[roomData.currentRound];
-    const allList = Object.values(playersObj);
-    const submissions = allList.map((p) => ({
-      key: p.id,
-      playerName: p.displayName,
+    const playersList = Object.values(roomData.players || {});
+    const entries = playersList.map((p) => ({
+      id: p.id,
+      name: p.displayName,
       answer: p.currentAnswer || ''
     }));
-    const judged = await judgeAnswersWithAI(currentQ, submissions);
 
-    const scoredPlayers = {};
-    allList.forEach((p) => {
-      if (!p.currentAnswer) {
-        scoredPlayers[p.id] = {
-          ...p,
-          prevScore: p.score || 0,
-          lastResult: {
-            valid: false,
-            crowdPct: 100,
-            points: 0,
-            isTrap: true,
-            feedback: { th: 'ไม่ได้ส่งคำตอบในรอบนี้', en: 'No answer submitted' }
-          }
-        };
-      } else {
-        const j = judged.find((x) => x.key === p.id) || judged[0];
-        const scored = computeScoreFromJudge(j, 0, 'normal');
-        scoredPlayers[p.id] = {
-          ...p,
-          prevScore: p.score || 0,
-          score: (p.score || 0) + scored.points,
-          lastResult: { ...j, ...scored }
-        };
-      }
+    const graded = await gradeBatchAnswers(currentQ, entries);
+    const updatedPlayers = {};
+    playersList.forEach((p) => {
+      const evalObj = p.currentAnswer
+        ? graded.results[p.id]
+        : { isValid: false, pct: 100, points: 0, floors: 0, comment: { th: 'ไม่ได้ส่งคำตอบทันเวลา', en: 'No answer submitted' } };
+      updatedPlayers[p.id] = {
+        ...p,
+        lastEval: evalObj,
+        score: (p.score || 0) + (evalObj?.points || 0)
+      };
     });
 
     await updateDoc(doc(db, 'rooms', activeRoomCode), {
-      players: scoredPlayers,
+      players: updatedPlayers,
+      crowdSummary: graded.crowdSummary,
       status: 'reveal'
     });
   };
 
-  const submitOnlineAnswer = async (e) => {
-    e.preventDefault();
-    if (!roomData || !activeRoomCode || !onlineAnswerInput.trim() || judgingAnswers) return;
-    const me = roomData.players?.[user.id];
-    if (!me || me.currentAnswer !== null) return;
-
-    const cleanAns = onlineAnswerInput.trim();
-    const updatedPlayers = {
-      ...roomData.players,
-      [user.id]: { ...me, currentAnswer: cleanAns }
-    };
-
-    const allList = Object.values(updatedPlayers);
-    if (allList.every((p) => p.currentAnswer !== null)) {
-      await evaluateOnlineRoom(updatedPlayers);
-    } else {
-      await updateDoc(doc(db, 'rooms', activeRoomCode), {
-        [`players.${user.id}.currentAnswer`]: cleanAns
-      });
+  // Auto-trigger AI grading when all players in room submit
+  useEffect(() => {
+    if (!roomData || roomData.status !== 'playing') return;
+    if (roomData.hostId !== user?.id) return;
+    const list = Object.values(roomData.players || {});
+    if (list.length > 0 && list.every((p) => p.currentAnswer !== null)) {
+      gradeAndRevealOnlineRoom();
     }
-  };
+  }, [roomData, user?.id]);
 
   const nextOnlineRound = async () => {
     if (!roomData || !activeRoomCode) return;
@@ -1558,15 +1506,11 @@ Return ONLY a valid JSON array matching each key:
     if (nextIdx < roomData.questions.length) {
       const reset = {};
       Object.values(roomData.players || {}).forEach((p) => {
-        reset[p.id] = {
-          ...p,
-          prevScore: p.score || 0,
-          currentAnswer: null,
-          lastResult: null
-        };
+        reset[p.id] = { ...p, currentAnswer: null, lastEval: null };
       });
       await updateDoc(doc(db, 'rooms', activeRoomCode), {
         players: reset,
+        crowdSummary: null,
         currentRound: nextIdx,
         status: 'playing'
       });
@@ -1583,7 +1527,7 @@ Return ONLY a valid JSON array matching each key:
       title: `Reverse Trivia — ห้อง ${activeRoomCode}`,
       text:
         lang === 'th'
-          ? `มาเล่น Reverse Trivia เติมคำตอบปีนหอคอยด้วยกัน! รหัสห้อง: ${activeRoomCode}`
+          ? `มาเล่น Reverse Trivia ห้อง ${activeRoomCode} ด้วยกัน! กดลิงก์เพื่อเข้าห้องเลย:`
           : `Join my Reverse Trivia room ${activeRoomCode}!`,
       url: inviteUrl,
       isRoom: true
@@ -1682,7 +1626,7 @@ Return ONLY a valid JSON array matching each key:
               <div>
                 <h1 className="text-xl font-bold text-white">Reverse Trivia</h1>
                 <p className="text-xs text-indigo-400">
-                  {lang === 'th' ? 'เติมคำสวนกระแส • ปีนหอคอย' : 'Fill-in Reverse Trivia Tower'}
+                  {lang === 'th' ? 'พิมพ์คำตอบสวนกระแส • AI ตรวจปีนหอคอย' : 'Type Rare Answers • Climb the Tower'}
                 </p>
               </div>
             </div>
@@ -1757,7 +1701,7 @@ Return ONLY a valid JSON array matching each key:
             {authTab === 'register' && (
               <div className="anim-fade-up">
                 <label className="block text-xs font-medium text-slate-400 mb-2">
-                  {lang === 'th' ? 'เลือกรูปโปรไฟล์นักปีนหอคอย' : 'Choose Your Climber Avatar'}
+                  {lang === 'th' ? 'เลือกรูปโปรไฟล์ของคุณ' : 'Choose Avatar'}
                 </label>
                 <div className="grid grid-cols-8 gap-1.5">
                   {AVATARS.map((av) => (
@@ -1876,7 +1820,7 @@ Return ONLY a valid JSON array matching each key:
   }
 
   // =========================================================================
-  // 2. หน้าหลักเลือกโหมด + พิมพ์หมวดหมู่ AI + แบนหมวดหมู่ + Leaderboard
+  // 2. หน้าหลักเลือกโหมด (LOBBY)
   // =========================================================================
   if (screen === 'lobby') {
     const activeBoard = leaderboardTab === 'hof' ? hofLeaderboard : survivalLeaderboard;
@@ -1893,15 +1837,15 @@ Return ONLY a valid JSON array matching each key:
           <div className="bg-gradient-to-r from-indigo-950/90 via-purple-950/70 to-slate-900/90 border border-indigo-500/30 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
             <div>
               <div className="flex items-center gap-2 text-indigo-300 font-bold text-base mb-1">
-                <Sparkles className="w-5 h-5 text-indigo-400" />
+                <Mountain className="w-5 h-5 text-amber-400" />
                 {lang === 'th'
-                  ? 'กติกา: พิมพ์คำตอบที่ "ถูกต้อง แต่คนนึกถึงน้อยที่สุด" เพื่อปีนหอคอย!'
-                  : 'Rule: Type a VALID answer few people think of to climb the tower!'}
+                  ? 'พิมพ์คำตอบสวนกระแส ให้ AI ตรวจและปีนขึ้นยอดหอคอย!'
+                  : 'Type rare answers for AI grading & climb the Tower!'}
               </div>
               <p className="text-xs sm:text-sm text-slate-300">
                 {lang === 'th'
-                  ? 'AI จะตรวจความถูกต้องและคำนวณความหายาก ยิ่งแหวกแนว ยิ่งปีนหอคอยสูงขึ้น! (แต่ถ้าตอบผิดหรือซ้ำกระแสหลัก ≥65% จะได้ 0 เมตร)'
-                  : 'AI judges accuracy & rarity! Rarer answers launch you higher up the tower, while wrong or mainstream (≥65%) answers score 0m.'}
+                  ? 'ยิ่งคำตอบของคุณแหวกแนวและตรงกับคนส่วนน้อยเท่าไหร่ AI ยิ่งให้คะแนนสูงและปีนหอคอยขึ้นไวขึ้น!'
+                  : 'The rarer your typed answer in a 100-person survey, the higher you climb the tower!'}
               </p>
             </div>
             <button
@@ -1921,8 +1865,8 @@ Return ONLY a valid JSON array matching each key:
                 <span className="flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                   {lang === 'th'
-                    ? 'พิมพ์หมวดหมู่เอง (AI จะคิดโจทย์เติมคำตอบให้ตรงหัวข้อ)'
-                    : 'Type Custom Topic (AI Generates Questions)'}
+                    ? 'พิมพ์หมวดหมู่เอง (AI จะสร้างคำถามเติมคำให้ตรงหัวข้อ)'
+                    : 'Type Custom Topic (AI Generates Open Questions)'}
                 </span>
                 {customCategory.trim() && (
                   <button
@@ -1941,7 +1885,7 @@ Return ONLY a valid JSON array matching each key:
                   onChange={(e) => setCustomCategory(e.target.value)}
                   placeholder={
                     lang === 'th'
-                      ? 'เช่น อนิเมะญี่ปุ่น, เกม ROV, K-Pop, ชีวิตเด็กหอ, ฟุตบอล...'
+                      ? 'เช่น อนิเมะญี่ปุ่น, เกม ROV, K-Pop, ชีวิตเด็กหอ, ของกินเซเว่น...'
                       : 'e.g. Anime, Marvel, Football, Office Life...'
                   }
                   className="w-full px-4 py-3 rounded-2xl bg-[#080d18] border border-slate-700 focus:border-indigo-500 focus:outline-none text-sm text-white placeholder:text-slate-500"
@@ -1958,7 +1902,7 @@ Return ONLY a valid JSON array matching each key:
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-slate-400 mb-2">
                   {lang === 'th'
-                    ? 'หรือเลือกหมวดหมู่หลัก (กดปุ่ม 🚫 เพื่อแบนหมวด)'
+                    ? 'หรือเลือกหมวดหมู่หลัก (กด 🚫 เพื่อแบนหมวด)'
                     : 'Or Pick Preset Category (Tap 🚫 to Ban)'}
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -1990,7 +1934,6 @@ Return ONLY a valid JSON array matching each key:
                           <button
                             type="button"
                             onClick={() => toggleBanPreset(c.id)}
-                            title={lang === 'th' ? 'แบน / ปลดแบนหมวดนี้' : 'Ban / Unban'}
                             className={`btn-press px-2 py-1.5 rounded-r-xl border text-xs ${
                               isBanned
                                 ? 'bg-rose-600/30 border-rose-500/50 text-rose-300'
@@ -2029,7 +1972,6 @@ Return ONLY a valid JSON array matching each key:
               </div>
             </div>
 
-            {/* Custom Topic Ban Input & Tags */}
             <div className="pt-3 border-t border-slate-800/80">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-300 shrink-0">
@@ -2071,7 +2013,7 @@ Return ONLY a valid JSON array matching each key:
                       🚫 {item.label}
                       <button
                         type="button"
-                        onClick={() => removeBan(item.key)}
+                        onClick={() => setBannedCategories((prev) => prev.filter((x) => x !== item.key))}
                         className="hover:text-white ml-0.5"
                       >
                         <X className="w-3 h-3" />
@@ -2091,12 +2033,12 @@ Return ONLY a valid JSON array matching each key:
                   <User className="w-6 h-6" />
                 </div>
                 <h2 className="font-bold text-base text-white mb-1">
-                  {lang === 'th' ? 'เล่นคนเดียว (Solo Tower)' : 'Solo Tower'}
+                  {lang === 'th' ? 'เล่นคนเดียว (Solo)' : 'Solo Mode'}
                 </h2>
                 <p className="text-xs text-slate-400 mb-4">
                   {lang === 'th'
-                    ? 'เติมคำตอบสวนกระแสให้ AI ตรวจ แล้วปีนหอคอยเก็บคะแนนเข้า Hall of Fame'
-                    : 'Type unique answers, get AI-judged, and climb the tower to the Hall of Fame.'}
+                    ? 'พิมพ์คำตอบให้ AI ตรวจความแหวกแนว ปีนหอคอยทำคะแนนเข้า Hall of Fame'
+                    : 'Type rare answers for AI grading and climb the tower.'}
                 </p>
               </div>
               <button
@@ -2106,7 +2048,7 @@ Return ONLY a valid JSON array matching each key:
                 className="btn-press w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2"
               >
                 {loadingQuestions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                {lang === 'th' ? 'เริ่มปีนหอคอย' : 'Play Solo'}
+                {lang === 'th' ? 'เริ่มเล่นคนเดียว' : 'Play Solo'}
               </button>
             </div>
 
@@ -2116,8 +2058,8 @@ Return ONLY a valid JSON array matching each key:
                   <div className="w-11 h-11 rounded-2xl bg-rose-500/15 text-rose-400 flex items-center justify-center">
                     <Skull className="w-6 h-6" />
                   </div>
-                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300 flex items-center gap-1">
-                    ❤️❤️❤️ {lang === 'th' ? 'ไร้ขีดจำกัด' : 'Endless'}
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-300">
+                    ❤️❤️❤️ {lang === 'th' ? 'ปีนไม่จำกัด' : 'Endless'}
                   </span>
                 </div>
                 <h2 className="font-bold text-base text-white mb-1">
@@ -2125,8 +2067,8 @@ Return ONLY a valid JSON array matching each key:
                 </h2>
                 <p className="text-xs text-slate-400 mb-4">
                   {lang === 'th'
-                    ? 'มี 3 หัวใจ! ตอบผิดหรือซ้ำกระแสหลักเสีย 1 หัวใจ สตรีคแรร์ครบ 3 ได้หัวใจคืน +1'
-                    : '3 lives! Avoid wrong or mainstream answers, hit 3 rare streaks to heal +1 heart!'}
+                    ? 'มี 3 หัวใจ! ตอบตรงกระแสหลักเสีย 1 หัวใจ สตรีคครบ 3 ได้หัวใจคืน +1 ปีนหอคอยให้สูงที่สุด!'
+                    : '3 lives! Avoid mainstream answers, hit 3-streaks to heal, climb as high as possible!'}
                 </p>
               </div>
               <button
@@ -2155,8 +2097,8 @@ Return ONLY a valid JSON array matching each key:
                 </h2>
                 <p className="text-xs text-slate-400 mb-4">
                   {lang === 'th'
-                    ? 'ผลัดกันแอบพิมพ์คำตอบบนเครื่องเดียว แล้วให้ AI ตรวจและปีนหอคอยแข่งกัน!'
-                    : 'Secretly type answers on one device and race up the tower!'}
+                    ? 'ผลัดกันแอบพิมพ์คำตอบทีละคนบนเครื่องเดียว แล้วให้ AI ตรวจแข่งกันปีนหอคอย'
+                    : 'Secretly type answers on one device and let AI score everyone together.'}
                 </p>
               </div>
               <button
@@ -2179,7 +2121,7 @@ Return ONLY a valid JSON array matching each key:
                 </h2>
                 <p className="text-xs text-slate-400 mb-3">
                   {lang === 'th'
-                    ? 'สร้างห้องแชร์ลิงก์ หรือกรอกรหัส 6 หลักเพื่อพิมพ์ตอบแข่งปีนหอคอยคนละเครื่อง'
+                    ? 'สร้างห้องรับลิงก์ชวนเพื่อน หรือกรอกรหัสห้อง 6 หลักเพื่อพิมพ์คำตอบแข่งกัน'
                     : 'Create a shareable room or join via 6-digit code.'}
                 </p>
               </div>
@@ -2233,7 +2175,7 @@ Return ONLY a valid JSON array matching each key:
                 )}
                 {leaderboardTab === 'hof'
                   ? lang === 'th' ? 'หอเกียรติยศ (Hall of Fame)' : 'Hall of Fame'
-                  : lang === 'th' ? 'สถิติโหมดเอาชีวิตรอด (Survival)' : 'Survival Mode Top Scores'}
+                  : lang === 'th' ? 'สถิติโหมดเอาชีวิตรอด (Survival)' : 'Survival Top Scores'}
               </div>
 
               <div className="grid grid-cols-2 gap-1.5 p-1 bg-[#080d18] rounded-xl border border-slate-800">
@@ -2268,7 +2210,7 @@ Return ONLY a valid JSON array matching each key:
               <div className="py-8 text-center text-xs text-slate-400">
                 {leaderboardTab === 'survival'
                   ? lang === 'th'
-                    ? 'ยังไม่มีสถิติโหมดเอาชีวิตรอด — ลองปีนหอคอยเป็นคนแรกเลย!'
+                    ? 'ยังไม่มีสถิติโหมดเอาชีวิตรอด — ลองเล่นเป็นคนแรกเพื่อขึ้นอันดับ 1 เลย!'
                     : 'No Survival records yet. Be the first!'
                   : lang === 'th'
                   ? 'ยังไม่มีข้อมูลอันดับผู้เล่น'
@@ -2279,10 +2221,12 @@ Return ONLY a valid JSON array matching each key:
                 {activeBoard.map((item, idx) => {
                   const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
                   const isMe = item.id === user.id;
+                  const pts = leaderboardTab === 'hof' ? item.score || 0 : item.survivalScore || 0;
+                  const flr = Math.floor(pts / 50);
                   return (
                     <div
                       key={item.id}
-                      className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl border transition-colors ${
+                      className={`flex items-center justify-between px-3.5 py-2.5 rounded-2xl border ${
                         idx === 0
                           ? 'bg-amber-500/10 border-amber-500/35'
                           : isMe
@@ -2291,9 +2235,7 @@ Return ONLY a valid JSON array matching each key:
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <span className="w-7 text-center text-sm font-black text-amber-300 shrink-0">
-                          {medal}
-                        </span>
+                        <span className="w-7 text-center text-sm font-black text-amber-300 shrink-0">{medal}</span>
                         <span className="text-xl shrink-0">{item.avatar || '😎'}</span>
                         <div className="min-w-0">
                           <div className="text-sm font-bold text-slate-100 truncate">
@@ -2305,17 +2247,11 @@ Return ONLY a valid JSON array matching each key:
                             )}
                           </div>
                           <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                            <span>🏔️ {lang === 'th' ? `ชั้น ${flr}` : `Floor ${flr}`}</span>
                             {leaderboardTab === 'hof' ? (
-                              <>
-                                <span>🔥 {lang === 'th' ? 'สตรีค' : 'Streak'} {item.bestStreak || 0}</span>
-                                {(item.survivalScore || 0) > 0 && (
-                                  <span className="text-rose-300">💀 {item.survivalScore}m</span>
-                                )}
-                              </>
+                              <span>🔥 {item.bestStreak || 0}</span>
                             ) : (
-                              <span>
-                                🛡️ {lang === 'th' ? `รอดสูงสุด ${item.survivalBestRound || 1} ด่าน` : `Best Round ${item.survivalBestRound || 1}`}
-                              </span>
+                              <span>🛡️ {lang === 'th' ? `ด่าน ${item.survivalBestRound || 1}` : `R${item.survivalBestRound || 1}`}</span>
                             )}
                           </div>
                         </div>
@@ -2326,9 +2262,9 @@ Return ONLY a valid JSON array matching each key:
                             leaderboardTab === 'hof' ? 'text-amber-400' : 'text-rose-400'
                           }`}
                         >
-                          {leaderboardTab === 'hof' ? item.score || 0 : item.survivalScore || 0}
+                          {pts}
                         </span>
-                        <span className="text-[11px] text-slate-400 ml-1">m</span>
+                        <span className="text-[11px] text-slate-400 ml-1">{lang === 'th' ? 'แต้ม' : 'pts'}</span>
                       </div>
                     </div>
                   );
@@ -2354,35 +2290,23 @@ Return ONLY a valid JSON array matching each key:
           <AmbientBackground />
           <ToastBanner message={toastMsg} />
           {renderTopBar()}
-          <div className="relative z-10 anim-pop w-full max-w-lg mx-auto bg-[#0f1626] border border-slate-800 rounded-3xl p-6 text-center shadow-2xl">
+          <div className="relative z-10 anim-pop w-full max-w-md mx-auto bg-[#0f1626] border border-slate-800 rounded-3xl p-6 text-center shadow-2xl">
             <ConfettiBurst active={fxConfetti} />
-            <h2 className="text-xl font-bold text-white mb-3">
-              🏆 {lang === 'th' ? 'พิชิตหอคอยสำเร็จ!' : 'Tower Run Complete!'}
+            <div className="text-4xl mb-2 anim-float">🏆</div>
+            <h2 className="text-xl font-bold text-white mb-4">
+              {lang === 'th' ? 'พิชิตหอคอยสำเร็จ!' : 'Tower Climb Complete!'}
             </h2>
 
-            <TowerClimbVisual
-              climbers={[
-                {
-                  id: user.id,
-                  name: user.displayName,
-                  avatar: user.avatar,
-                  score: soloScore,
-                  prevScore: 0,
-                  lastDelta: soloScore
-                }
-              ]}
-              lang={lang}
-              animTrigger={towerAnimTick + 100}
-            />
+            <TowerClimbWidget score={soloScore} avatar={user.avatar} lang={lang} compact />
 
             <div className="grid grid-cols-2 gap-3 mb-5">
-              <div className="p-4 rounded-2xl bg-[#080d18] border border-slate-800">
-                <div className="text-xs text-slate-400">{lang === 'th' ? 'ความสูงรวม' : 'Total Height'}</div>
-                <div className="text-2xl font-black text-amber-400">{soloScore}m</div>
+              <div className="p-3.5 rounded-2xl bg-[#080d18] border border-slate-800">
+                <div className="text-xs text-slate-400">{lang === 'th' ? 'คะแนนรอบนี้' : 'Score'}</div>
+                <div className="text-2xl font-bold text-amber-400">{soloScore}</div>
               </div>
-              <div className="p-4 rounded-2xl bg-[#080d18] border border-slate-800">
-                <div className="text-xs text-slate-400">{lang === 'th' ? 'สตรีคหายากสูงสุด' : 'Best Rare Streak'}</div>
-                <div className="text-2xl font-black text-orange-400">🔥 {soloBestStreak}</div>
+              <div className="p-3.5 rounded-2xl bg-[#080d18] border border-slate-800">
+                <div className="text-xs text-slate-400">{lang === 'th' ? 'สตรีคสูงสุด' : 'Best Streak'}</div>
+                <div className="text-2xl font-bold text-orange-400">{soloBestStreak}</div>
               </div>
             </div>
 
@@ -2393,29 +2317,29 @@ Return ONLY a valid JSON array matching each key:
                   title: 'Reverse Trivia Tower Score',
                   text:
                     lang === 'th'
-                      ? `🗼 ฉันปีนหอคอย Reverse Trivia ได้สูง ${soloScore} เมตร (สตรีค ${soloBestStreak})! มาลองปีนแข่งกัน:`
-                      : `🗼 I climbed ${soloScore}m in Reverse Trivia! Beat my height:`,
+                      ? `🏔️ ฉันปีนหอคอย Reverse Trivia ได้ถึงชั้นที่ ${Math.floor(soloScore / 50)} (${soloScore} แต้ม)! มาลองทายสวนกระแสกัน:`
+                      : `🏔️ I climbed to Floor ${Math.floor(soloScore / 50)} (${soloScore} pts) in Reverse Trivia!`,
                   url: window.location.origin
                 })
               }
               className="btn-press w-full mb-3 py-3 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-bold text-sm flex items-center justify-center gap-2"
             >
               <Share2 className="w-4 h-4" />
-              {lang === 'th' ? 'แชร์ความสูงหอคอยให้เพื่อน' : 'Share Score'}
+              {lang === 'th' ? 'แชร์ความสูงหอคอยให้เพื่อน' : 'Share Tower Climb'}
             </button>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={startSoloGame}
-                className="btn-press py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2"
+                className="btn-press py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm flex items-center justify-center gap-2"
               >
                 <RotateCcw className="w-4 h-4" />
-                {lang === 'th' ? 'ปีนอีกรอบ' : 'Play Again'}
+                {lang === 'th' ? 'เล่นอีกครั้ง' : 'Play Again'}
               </button>
               <button
                 type="button"
                 onClick={() => setScreen('lobby')}
-                className="btn-press py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm"
+                className="btn-press py-3 rounded-xl bg-slate-800 text-white font-bold text-sm"
               >
                 {lang === 'th' ? 'กลับหน้าหลัก' : 'Lobby'}
               </button>
@@ -2433,148 +2357,112 @@ Return ONLY a valid JSON array matching each key:
         {renderTopBar()}
 
         <div
-          className={`relative z-10 anim-fade-up w-full max-w-xl mx-auto bg-[#0f1626]/95 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl ${
+          key={soloRound}
+          className={`relative z-10 anim-fade-up w-full max-w-xl mx-auto bg-[#0f1626]/95 border border-slate-800 rounded-3xl p-6 shadow-2xl ${
             fxShake ? 'anim-shake border-rose-500/60' : ''
           }`}
         >
           <ConfettiBurst active={fxConfetti} />
 
-          {/* Header Bar */}
+          {/* Tower Climb Animation */}
+          <TowerClimbWidget score={soloScore} avatar={user.avatar} lastGain={lastTowerGain} lang={lang} compact />
+
           <div className="flex items-center justify-between text-xs mb-3">
             <span className="font-bold text-indigo-400">
               {lang === 'th' ? `ข้อที่ ${soloRound + 1} / ${questions.length}` : `Q${soloRound + 1}/${questions.length}`}
             </span>
             <div className="flex items-center gap-3">
               <span className="text-slate-400">
-                {questionSource === 'ai-custom'
-                  ? `✨ ${customCategory.trim()}`
-                  : questionSource === 'ai'
-                  ? '✨ Gemini AI'
-                  : '🎲 Classic'}
+                {questionSource === 'ai-custom' ? `✨ ${customCategory.trim()}` : '✨ AI Judge'}
               </span>
               <span className="text-orange-400 font-bold">🔥 {soloStreak}</span>
             </div>
           </div>
 
-          {/* อนิเมชั่นหอคอย */}
-          <TowerClimbVisual
-            climbers={[
-              {
-                id: user.id,
-                name: user.displayName,
-                avatar: user.avatar,
-                score: soloScore,
-                prevScore: soloResult ? soloPrevScore : soloScore,
-                lastDelta: soloResult ? soloResult.points : 0,
-                isTrap: soloResult ? soloResult.isTrap : false
-              }
-            ]}
-            lang={lang}
-            animTrigger={towerAnimTick}
-          />
-
-          {/* คำถามปลายเปิด */}
-          <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 leading-snug">
+          <h3 className="text-base sm:text-lg font-bold text-white mb-5 leading-snug">
             {currentQ?.question[lang]}
           </h3>
-          {currentQ?.hint && (
-            <p className="text-xs text-slate-400 mb-4">
-              💡 {currentQ.hint[lang]}
-            </p>
-          )}
 
-          {/* ช่องเติมคำตอบ */}
           {!soloResult ? (
             <form onSubmit={handleSoloSubmit} className="space-y-3">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  autoFocus
-                  disabled={judgingAnswers}
-                  value={soloAnswerInput}
-                  onChange={(e) => setSoloAnswerInput(e.target.value)}
-                  placeholder={lang === 'th' ? 'พิมพ์คำตอบสวนกระแสของคุณที่นี่...' : 'Type your rare answer here...'}
-                  className="flex-1 px-4 py-3.5 rounded-2xl bg-[#080d18] border border-slate-700 focus:border-indigo-500 focus:outline-none text-sm text-white placeholder:text-slate-500"
-                  required
-                />
-                <button
-                  type="submit"
-                  disabled={judgingAnswers || !soloAnswerInput.trim()}
-                  className="btn-press px-5 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-sm flex items-center gap-2 shrink-0"
-                >
-                  {judgingAnswers ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {judgingAnswers ? (lang === 'th' ? 'ตรวจ...' : '...') : (lang === 'th' ? 'ส่ง' : 'Send')}
-                </button>
-              </div>
-              {judgingAnswers && (
-                <div className="anim-fade-up flex items-center justify-center gap-2 text-xs text-indigo-300 py-2">
-                  <Sparkles className="w-4 h-4 animate-pulse" />
-                  {lang === 'th' ? 'AI กำลังตรวจความถูกต้องและความหายากของคำตอบ...' : 'AI is evaluating your answer...'}
-                </div>
-              )}
+              <input
+                type="text"
+                value={soloAnswerInput}
+                onChange={(e) => setSoloAnswerInput(e.target.value)}
+                disabled={gradingAnswer}
+                placeholder={
+                  lang === 'th'
+                    ? 'พิมพ์คำตอบที่คิดว่าคนอื่นจะนึกไม่ถึง...'
+                    : 'Type an answer nobody else will think of...'
+                }
+                className="w-full px-4 py-3.5 rounded-2xl bg-[#080d18] border border-slate-700 focus:border-indigo-500 focus:outline-none text-white text-sm"
+                autoFocus
+                required
+              />
+              <button
+                type="submit"
+                disabled={gradingAnswer || !soloAnswerInput.trim()}
+                className="btn-press w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {gradingAnswer ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {lang === 'th' ? 'AI กำลังตรวจคำตอบของคุณ...' : 'AI is grading your answer...'}
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    {lang === 'th' ? 'ส่งคำตอบให้ AI ตรวจ' : 'Submit to AI Judge'}
+                  </>
+                )}
+              </button>
             </form>
           ) : (
-            /* ผลตรวจจาก AI */
             <div className="anim-pop space-y-4">
               <div
                 className={`p-4 rounded-2xl border ${
-                  !soloResult.valid || soloResult.isTrap
-                    ? 'bg-rose-500/10 border-rose-500/40'
-                    : soloResult.isReverseMaster
-                    ? 'bg-emerald-500/15 border-emerald-500/50'
-                    : 'bg-indigo-500/15 border-indigo-500/40'
+                  soloResult.points > 0
+                    ? 'bg-emerald-500/10 border-emerald-500/40'
+                    : 'bg-rose-500/10 border-rose-500/40'
                 }`}
               >
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="text-sm font-bold text-white">
-                    {lang === 'th' ? 'คำตอบของคุณ:' : 'Your Answer:'}{' '}
-                    <span className="text-amber-300">"{soloResult.answer}"</span>
-                  </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-300">
+                    {lang === 'th' ? `คำตอบของคุณ: "${soloAnswerInput}"` : `Your Answer: "${soloAnswerInput}"`}
+                  </span>
                   <span
-                    className={`px-2.5 py-1 rounded-full text-xs font-black ${
+                    className={`text-xs font-black px-2.5 py-0.5 rounded-full ${
                       soloResult.points > 0
                         ? 'bg-emerald-500/20 text-emerald-300'
                         : 'bg-rose-500/20 text-rose-300'
                     }`}
                   >
-                    +{soloResult.points}m
+                    {lang === 'th' ? `คนตอบแนวนี้ ${soloResult.pct}%` : `${soloResult.pct}% Crowd Match`}
                   </span>
                 </div>
 
-                {soloResult.valid && (
-                  <div className="mb-2.5">
-                    <div className="flex justify-between text-[11px] text-slate-300 mb-1">
-                      <span>{lang === 'th' ? 'ความซ้ำกับคนทั่วไป (ยิ่งน้อยยิ่งดี)' : 'Crowd Popularity (Lower is better)'}</span>
-                      <span className="font-bold">{soloResult.crowdPct}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ${
-                          soloResult.crowdPct <= 20
-                            ? 'bg-emerald-500'
-                            : soloResult.crowdPct >= 65
-                            ? 'bg-rose-500'
-                            : 'bg-indigo-500'
-                        }`}
-                        style={{ width: `${soloResult.crowdPct}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
+                <p className="text-sm font-bold text-white mb-2">{soloResult.comment[lang]}</p>
 
-                <p className="text-xs text-slate-200 leading-relaxed">
-                  🤖 <span className="font-semibold">AI:</span> {soloResult.feedback[lang]}
-                </p>
+                <div className="flex items-center gap-3 text-xs font-black">
+                  <span className="text-amber-400">+{soloResult.points} {lang === 'th' ? 'แต้ม' : 'pts'}</span>
+                  <span className="text-emerald-400">+{soloResult.floors} {lang === 'th' ? 'ชั้นหอคอย' : 'Floors'}</span>
+                </div>
               </div>
+
+              {soloResult.crowdSummary?.[lang] && (
+                <div className="p-3 rounded-xl bg-[#080d18] border border-slate-800 text-xs text-slate-300">
+                  📊 {soloResult.crowdSummary[lang]}
+                </div>
+              )}
 
               <button
                 type="button"
                 onClick={handleSoloNext}
-                className="btn-press w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2"
+                className="btn-press w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2"
               >
                 {soloRound + 1 < questions.length
-                  ? lang === 'th' ? 'ปีนด่านถัดไป' : 'Next Floor'
-                  : lang === 'th' ? 'ดูสรุปความสูงหอคอย' : 'Finish Run'}
+                  ? lang === 'th' ? 'ข้อถัดไป' : 'Next Question'
+                  : lang === 'th' ? 'ดูสรุปความสูงหอคอย' : 'See Final Tower'}
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -2585,7 +2473,7 @@ Return ONLY a valid JSON array matching each key:
   }
 
   // =========================================================================
-  // 4. โหมดเอาชีวิตรอด (SURVIVAL — 3 หัวใจ + เติมคำตอบ + AI ตรวจ + ปีนหอคอย)
+  // 4. โหมดเอาชีวิตรอด (SURVIVAL — เติมคำตอบ + 3 หัวใจ + ปีนหอคอยไม่จำกัด)
   // =========================================================================
   if (screen === 'survival') {
     const currentQ = questions[survivalBatchIdx];
@@ -2597,33 +2485,23 @@ Return ONLY a valid JSON array matching each key:
           <AmbientBackground />
           <ToastBanner message={toastMsg} />
           {renderTopBar()}
-          <div className="relative z-10 anim-pop w-full max-w-lg mx-auto bg-[#0f1626] border border-rose-500/40 rounded-3xl p-6 text-center shadow-2xl">
+          <div className="relative z-10 anim-pop w-full max-w-md mx-auto bg-[#0f1626] border border-rose-500/40 rounded-3xl p-6 text-center shadow-2xl">
+            <div className="text-5xl mb-2 anim-float">💀</div>
             <h2 className="text-xl font-bold text-white mb-1">
-              💀 {lang === 'th' ? 'จบการเอาชีวิตรอด!' : 'Survival Run Ended!'}
+              {lang === 'th' ? 'จบการเอาชีวิตรอด!' : 'Survival Run Ended!'}
             </h2>
-            <p className="text-xs text-slate-400 mb-3">
-              {lang === 'th' ? `คุณรอดชีวิตได้ถึงด่านที่ ${survivalRound}` : `Survived until Round ${survivalRound}`}
+            <p className="text-xs text-slate-400 mb-4">
+              {lang === 'th'
+                ? `คุณรอดชีวิตได้ถึงด่านที่ ${survivalRound}`
+                : `You survived until Round ${survivalRound}`}
             </p>
 
-            <TowerClimbVisual
-              climbers={[
-                {
-                  id: user.id,
-                  name: user.displayName,
-                  avatar: user.avatar,
-                  score: survivalScore,
-                  prevScore: 0,
-                  lastDelta: survivalScore
-                }
-              ]}
-              lang={lang}
-              animTrigger={towerAnimTick + 100}
-            />
+            <TowerClimbWidget score={survivalScore} avatar={user.avatar} lang={lang} compact />
 
             <div className="grid grid-cols-3 gap-2.5 mb-5">
               <div className="p-3 rounded-2xl bg-[#080d18] border border-slate-800">
-                <div className="text-[11px] text-slate-400">{lang === 'th' ? 'ความสูง' : 'Height'}</div>
-                <div className="text-xl font-black text-rose-400">{survivalScore}m</div>
+                <div className="text-[11px] text-slate-400">{lang === 'th' ? 'คะแนน' : 'Score'}</div>
+                <div className="text-xl font-black text-rose-400">{survivalScore}</div>
               </div>
               <div className="p-3 rounded-2xl bg-[#080d18] border border-slate-800">
                 <div className="text-[11px] text-slate-400">{lang === 'th' ? 'ด่านที่ถึง' : 'Round'}</div>
@@ -2639,11 +2517,11 @@ Return ONLY a valid JSON array matching each key:
               type="button"
               onClick={() =>
                 shareLink({
-                  title: 'Reverse Trivia Survival Tower',
+                  title: 'Reverse Trivia — Survival Score',
                   text:
                     lang === 'th'
-                      ? `💀 ฉันปีนหอคอยโหมด Survival ได้สูง ${survivalScore} เมตร (รอดถึงด่าน ${survivalRound})! มาลองท้าชิงกัน:`
-                      : `💀 I climbed ${survivalScore}m (Round ${survivalRound}) in Survival Mode!`,
+                      ? `💀 ฉันทำคะแนนโหมด Survival ได้ ${survivalScore} แต้ม (รอดถึงด่าน ${survivalRound} • หอคอยชั้น ${Math.floor(survivalScore / 50)}) ใน Reverse Trivia!`
+                      : `💀 I scored ${survivalScore} pts (Round ${survivalRound}) in Reverse Trivia Survival!`,
                   url: window.location.origin
                 })
               }
@@ -2660,7 +2538,7 @@ Return ONLY a valid JSON array matching each key:
                 className="btn-press py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm flex items-center justify-center gap-2"
               >
                 <RotateCcw className="w-4 h-4" />
-                {lang === 'th' ? 'ลุยอีกรอบ' : 'Retry'}
+                {lang === 'th' ? 'เล่นอีกรอบ' : 'Retry'}
               </button>
               <button
                 type="button"
@@ -2686,21 +2564,19 @@ Return ONLY a valid JSON array matching each key:
         {renderTopBar()}
 
         <div
-          className={`relative z-10 anim-fade-up w-full max-w-xl mx-auto bg-[#0f1626]/95 border border-rose-500/30 rounded-3xl p-5 sm:p-6 shadow-2xl ${
+          key={survivalRound}
+          className={`relative z-10 anim-fade-up w-full max-w-xl mx-auto bg-[#0f1626]/95 border border-rose-500/30 rounded-3xl p-6 shadow-2xl ${
             fxShake ? 'anim-shake border-rose-500' : ''
           }`}
         >
           <ConfettiBurst active={fxConfetti} />
 
+          <TowerClimbWidget score={survivalScore} avatar={user.avatar} lastGain={lastTowerGain} lang={lang} compact />
+
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 text-xs font-black">
-                💀 {lang === 'th' ? `ด่าน ${survivalRound}` : `Round ${survivalRound}`}
-              </span>
-              <span className="text-xs text-slate-400">
-                {questionSource === 'ai-custom' ? `✨ ${customCategory.trim()}` : '✨ Gemini AI'}
-              </span>
-            </div>
+            <span className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 text-xs font-black">
+              💀 {lang === 'th' ? `ด่าน ${survivalRound}` : `Round ${survivalRound}`}
+            </span>
 
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1">
@@ -2713,126 +2589,99 @@ Return ONLY a valid JSON array matching each key:
                   />
                 ))}
               </div>
-              <span className="text-orange-400 font-bold text-xs">🔥{survivalStreak}</span>
+              <span className="text-orange-400 font-bold text-xs">🔥 {survivalStreak}</span>
             </div>
           </div>
 
-          <TowerClimbVisual
-            climbers={[
-              {
-                id: user.id,
-                name: user.displayName,
-                avatar: user.avatar,
-                score: survivalScore,
-                prevScore: survivalResult ? survivalPrevScore : survivalScore,
-                lastDelta: survivalResult ? survivalResult.points : 0,
-                isTrap: survivalResult ? survivalResult.isTrap : false
-              }
-            ]}
-            lang={lang}
-            animTrigger={towerAnimTick}
-          />
-
           {survivalHealNotice && (
             <div className="anim-pop mb-3 px-3 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-center">
-              ❤️ {lang === 'th' ? 'สตรีคแรร์ครบ 3 ข้อ! ฟื้นฟูหัวใจ +1 ดวง!' : '3 Rare Streaks! +1 Heart Restored!'}
+              ❤️ {lang === 'th' ? 'สตรีคครบ 3 ข้อ! ฟื้นฟูหัวใจ +1 ดวง!' : '3-Streak Bonus! +1 Heart Restored!'}
             </div>
           )}
 
-          <h3 className="text-base sm:text-lg font-bold text-white mb-1.5 leading-snug">
+          <h3 className="text-base sm:text-lg font-bold text-white mb-5 leading-snug">
             {currentQ?.question[lang]}
           </h3>
-          {currentQ?.hint && (
-            <p className="text-xs text-slate-400 mb-4">💡 {currentQ.hint[lang]}</p>
-          )}
 
           {!survivalResult ? (
             <form onSubmit={handleSurvivalSubmit} className="space-y-3">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  autoFocus
-                  disabled={judgingAnswers}
-                  value={survivalAnswerInput}
-                  onChange={(e) => setSurvivalAnswerInput(e.target.value)}
-                  placeholder={lang === 'th' ? 'พิมพ์คำตอบเอาชีวิตรอด...' : 'Type your survival answer...'}
-                  className="flex-1 px-4 py-3.5 rounded-2xl bg-[#080d18] border border-slate-700 focus:border-rose-500 focus:outline-none text-sm text-white"
-                  required
-                />
-                <button
-                  type="submit"
-                  disabled={judgingAnswers || !survivalAnswerInput.trim()}
-                  className="btn-press px-5 py-3.5 rounded-2xl bg-gradient-to-r from-rose-600 to-orange-600 disabled:opacity-50 text-white font-bold text-sm flex items-center gap-2 shrink-0"
-                >
-                  {judgingAnswers ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {lang === 'th' ? 'ส่ง' : 'Send'}
-                </button>
-              </div>
-              {judgingAnswers && (
-                <div className="flex items-center justify-center gap-2 text-xs text-rose-300 py-2">
-                  <Sparkles className="w-4 h-4 animate-pulse" />
-                  {lang === 'th' ? 'AI กำลังตัดสินชะตาคำตอบของคุณ...' : 'AI is judging your survival answer...'}
-                </div>
-              )}
+              <input
+                type="text"
+                value={survivalAnswerInput}
+                onChange={(e) => setSurvivalAnswerInput(e.target.value)}
+                disabled={gradingAnswer}
+                placeholder={
+                  lang === 'th'
+                    ? 'พิมพ์คำตอบสวนกระแสเพื่อเอาชีวิตรอด...'
+                    : 'Type a rare answer to survive...'
+                }
+                className="w-full px-4 py-3.5 rounded-2xl bg-[#080d18] border border-slate-700 focus:border-rose-500 focus:outline-none text-white text-sm"
+                autoFocus
+                required
+              />
+              <button
+                type="submit"
+                disabled={gradingAnswer || !survivalAnswerInput.trim()}
+                className="btn-press w-full py-3.5 rounded-2xl bg-gradient-to-r from-rose-600 to-orange-600 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {gradingAnswer ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {lang === 'th' ? 'AI กำลังตัดสิน...' : 'AI Judging...'}
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    {lang === 'th' ? 'ส่งคำตอบเอาชีวิตรอด' : 'Submit Answer'}
+                  </>
+                )}
+              </button>
             </form>
           ) : (
             <div className="anim-pop space-y-4">
               <div
                 className={`p-4 rounded-2xl border ${
-                  survivalResult.isTrap
-                    ? 'bg-rose-500/15 border-rose-500/50'
-                    : survivalResult.isReverseMaster
-                    ? 'bg-emerald-500/15 border-emerald-500/50'
-                    : 'bg-indigo-500/15 border-indigo-500/40'
+                  survivalResult.points > 0
+                    ? 'bg-emerald-500/10 border-emerald-500/40'
+                    : 'bg-rose-500/15 border-rose-500/50'
                 }`}
               >
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-sm font-bold text-white">"{survivalResult.answer}"</span>
-                  <span
-                    className={`px-2.5 py-1 rounded-full text-xs font-black ${
-                      survivalResult.isTrap ? 'bg-rose-500/25 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'
-                    }`}
-                  >
-                    {survivalResult.isTrap ? '-1 ❤️ (0m)' : `+${survivalResult.points}m`}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-300">"{survivalAnswerInput}"</span>
+                  <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-slate-900 text-white">
+                    {survivalResult.pct}%
                   </span>
                 </div>
-                {survivalResult.valid && (
-                  <div className="mb-2.5">
-                    <div className="flex justify-between text-[11px] text-slate-300 mb-1">
-                      <span>{lang === 'th' ? 'อัตราตอบซ้ำกับคนทั่วไป' : 'Crowd Popularity'}</span>
-                      <span className="font-bold">{survivalResult.crowdPct}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ${
-                          survivalResult.crowdPct <= 20
-                            ? 'bg-emerald-500'
-                            : survivalResult.crowdPct >= 65
-                            ? 'bg-rose-500'
-                            : 'bg-indigo-500'
-                        }`}
-                        style={{ width: `${survivalResult.crowdPct}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-                <p className="text-xs text-slate-200 leading-relaxed">
-                  🤖 <span className="font-semibold">AI:</span> {survivalResult.feedback[lang]}
-                </p>
+                <p className="text-sm font-bold text-white mb-2">{survivalResult.comment[lang]}</p>
+                <div className="text-xs font-black">
+                  {survivalResult.points > 0 ? (
+                    <span className="text-emerald-400">
+                      +{survivalResult.points} {lang === 'th' ? 'แต้ม' : 'pts'} (+{survivalResult.floors}{' '}
+                      {lang === 'th' ? 'ชั้น' : 'Fl'})
+                    </span>
+                  ) : (
+                    <span className="text-rose-400">
+                      💔 {lang === 'th' ? 'เสียหัวใจ 1 ดวง!' : 'Lost 1 Heart!'}
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {survivalResult.crowdSummary?.[lang] && (
+                <div className="p-3 rounded-xl bg-[#080d18] border border-slate-800 text-xs text-slate-300">
+                  📊 {survivalResult.crowdSummary[lang]}
+                </div>
+              )}
 
               {survivalLives > 0 && (
                 <button
                   type="button"
                   disabled={loadingQuestions}
                   onClick={handleSurvivalNext}
-                  className="btn-press w-full py-3.5 rounded-xl bg-gradient-to-r from-rose-600 to-orange-600 text-white font-bold text-sm flex items-center justify-center gap-2"
+                  className="btn-press w-full py-3.5 rounded-2xl bg-gradient-to-r from-rose-600 to-orange-600 text-white font-bold text-sm flex items-center justify-center gap-2"
                 >
                   {loadingQuestions ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {lang === 'th' ? 'AI กำลังสร้างด่านถัดไป...' : 'Loading next wave...'}
-                    </>
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>
                       {lang === 'th' ? 'ลุยด่านต่อไป' : 'Next Round'}
@@ -2879,7 +2728,7 @@ Return ONLY a valid JSON array matching each key:
           </div>
           <p className="text-xs text-slate-400 mb-5">
             {lang === 'th'
-              ? 'แตะที่รูปไอคอนเพื่อเปลี่ยนรูปนักปีนหอคอย และตั้งชื่อผู้เล่นแต่ละคนได้เลย'
+              ? 'แตะที่รูปไอคอนเพื่อเปลี่ยนรูปโปรไฟล์ และพิมพ์ชื่อผู้เล่นแต่ละคนได้เลย'
               : 'Tap an avatar to change it and enter player names.'}
           </p>
 
@@ -2934,8 +2783,7 @@ Return ONLY a valid JSON array matching each key:
                     {
                       name: lang === 'th' ? `ผู้เล่น ${localPlayers.length + 1}` : `Player ${localPlayers.length + 1}`,
                       avatar: AVATARS[localPlayers.length % AVATARS.length],
-                      score: 0,
-                      prevScore: 0
+                      score: 0
                     }
                   ])
                 }
@@ -2951,7 +2799,7 @@ Return ONLY a valid JSON array matching each key:
               className="btn-press flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2"
             >
               {loadingQuestions ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {lang === 'th' ? 'เริ่มแข่งปีนหอคอย!' : 'Start Tower Race!'}
+              {lang === 'th' ? 'เริ่มเล่นเลย!' : 'Start Game!'}
             </button>
           </div>
         </div>
@@ -2960,7 +2808,7 @@ Return ONLY a valid JSON array matching each key:
   }
 
   // =========================================================================
-  // 6. หน้าเล่นเกมผู้เล่นหลายคนในเครื่องเดียว (เติมคำตอบลับ + AI ตรวจ + ปีนหอคอย)
+  // 6. หน้าเล่นเกมผู้เล่นหลายคนในเครื่องเดียว (Pass & Play — เติมคำตอบ + AI ตรวจ)
   // =========================================================================
   if (screen === 'local_game') {
     const currentQ = questions[localRound];
@@ -2976,62 +2824,39 @@ Return ONLY a valid JSON array matching each key:
           {renderTopBar()}
           <div className="relative z-10 anim-pop w-full max-w-xl mx-auto bg-[#0f1626] border border-slate-800 rounded-3xl p-6 text-center shadow-2xl">
             <ConfettiBurst active={fxConfetti} />
+            <div className="text-4xl mb-2 anim-float">👑</div>
             <h2 className="text-xl font-bold text-white mb-1">
-              👑 {lang === 'th' ? 'สรุปผลผู้พิชิตหอคอย!' : 'Final Tower Standings!'}
+              {lang === 'th' ? 'สรุปผลผู้ชนะบนยอดหอคอย!' : 'Tower Climb Winners!'}
             </h2>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-xs text-slate-400 mb-5">
               {lang === 'th'
-                ? `ผู้ชนะคือ ${sorted[0]?.name} (${sorted[0]?.score} เมตร)`
-                : `${sorted[0]?.name} wins (${sorted[0]?.score}m)`}
+                ? `ผู้ชนะคือ ${sorted[0]?.name} (ชั้น ${Math.floor((sorted[0]?.score || 0) / 50)} • ${sorted[0]?.score} แต้ม)`
+                : `${sorted[0]?.name} wins (${sorted[0]?.score} pts)`}
             </p>
-
-            <TowerClimbVisual
-              climbers={localPlayers.map((p, i) => ({
-                id: i,
-                name: p.name,
-                avatar: p.avatar,
-                score: p.score,
-                prevScore: 0,
-                lastDelta: p.score
-              }))}
-              lang={lang}
-              animTrigger={towerAnimTick + 100}
-            />
-
-            <div className="space-y-2 mb-5 text-left">
+            <div className="space-y-2.5 mb-6 text-left">
               {sorted.map((p, idx) => (
                 <div
                   key={idx}
-                  className={`flex items-center justify-between p-3 rounded-2xl border ${
+                  className={`flex items-center justify-between p-3.5 rounded-2xl border ${
                     idx === 0 ? 'bg-amber-500/10 border-amber-500/40' : 'bg-[#080d18] border-slate-800'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <span className="font-bold text-sm text-slate-400">#{idx + 1}</span>
                     <span className="text-2xl">{p.avatar}</span>
-                    <span className="font-bold text-sm text-white">{p.name}</span>
+                    <div>
+                      <div className="font-bold text-sm text-white">{p.name}</div>
+                      <div className="text-[11px] text-slate-400">
+                        🏔️ {lang === 'th' ? `หอคอยชั้นที่ ${Math.floor(p.score / 50)}` : `Floor ${Math.floor(p.score / 50)}`}
+                      </div>
+                    </div>
                   </div>
-                  <span className="font-black text-amber-400 text-sm">{p.score}m</span>
+                  <span className="font-bold text-amber-400 text-sm">
+                    {p.score} {lang === 'th' ? 'แต้ม' : 'pts'}
+                  </span>
                 </div>
               ))}
             </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                shareLink({
-                  text:
-                    lang === 'th'
-                      ? `👑 ผลแข่งปีนหอคอย Reverse Trivia! ผู้ชนะคือ ${sorted[0]?.name} (${sorted[0]?.score} เมตร)!`
-                      : `👑 ${sorted[0]?.name} won our Reverse Trivia Tower race (${sorted[0]?.score}m)!`,
-                  url: window.location.origin
-                })
-              }
-              className="btn-press w-full mb-3 py-3 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-bold text-sm flex items-center justify-center gap-2"
-            >
-              <Share2 className="w-4 h-4" />
-              {lang === 'th' ? 'แชร์ผลแข่งให้เพื่อน' : 'Share Results'}
-            </button>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
@@ -3060,26 +2885,19 @@ Return ONLY a valid JSON array matching each key:
         <AmbientBackground />
         <ToastBanner message={toastMsg} />
         {renderTopBar()}
-        <div className="relative z-10 anim-fade-up w-full max-w-xl mx-auto bg-[#0f1626]/95 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl">
+        <div
+          key={`${localRound}-${localTurnIndex}-${localPrivacyScreen}-${Boolean(localResults)}`}
+          className="relative z-10 anim-fade-up w-full max-w-xl mx-auto bg-[#0f1626]/95 border border-slate-800 rounded-3xl p-6 shadow-2xl"
+        >
           <ConfettiBurst active={fxConfetti} />
           <div className="flex items-center justify-between text-xs text-slate-400 mb-4">
             <span className="font-bold text-emerald-400">
               {lang === 'th' ? `ข้อที่ ${localRound + 1} / ${questions.length}` : `Round ${localRound + 1}/${questions.length}`}
             </span>
-            <span>{questionSource === 'ai-custom' ? `✨ ${customCategory.trim()}` : '✨ Gemini AI'}</span>
+            <span>✨ AI Judge</span>
           </div>
 
-          {judgingAnswers ? (
-            <div className="py-14 text-center space-y-3">
-              <Loader2 className="w-10 h-10 text-emerald-400 animate-spin mx-auto" />
-              <p className="text-sm font-bold text-white">
-                {lang === 'th' ? '🤖 AI กำลังตรวจคำตอบของทุกคน...' : '🤖 AI is grading all answers...'}
-              </p>
-              <p className="text-xs text-slate-400">
-                {lang === 'th' ? 'เตรียมดูทุกคนปีนหอคอยพร้อมกัน!' : 'Get ready for the tower climb!'}
-              </p>
-            </div>
-          ) : !localReveal && localPrivacyScreen ? (
+          {!localResults && localPrivacyScreen ? (
             <div className="py-8 text-center space-y-5">
               <div className="anim-float w-20 h-20 rounded-3xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-4xl mx-auto">
                 {currentPlayer.avatar}
@@ -3094,8 +2912,372 @@ Return ONLY a valid JSON array matching each key:
                   {lang === 'th' ? `ส่งเครื่องให้ "${currentPlayer.name}"` : `Pass to "${currentPlayer.name}"`}
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
-                  {lang === 'th' ? 'คนอื่นห้ามแอบดูตอนพิมพ์คำตอบนะ!' : 'No peeking while typing!'}
+                  {lang === 'th' ? 'คนอื่นห้ามแอบดูคำตอบที่พิมพ์นะ!' : 'No peeking while typing!'}
                 </p>
               </div>
               <button
                 type="button"
+                onClick={() => setLocalPrivacyScreen(false)}
+                className="btn-press px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
+              >
+                {lang === 'th' ? `ฉันคือ ${currentPlayer.name} — พร้อมพิมพ์!` : `I am ${currentPlayer.name} — Ready!`}
+              </button>
+            </div>
+          ) : !localResults ? (
+            <form onSubmit={handleLocalSecretSubmit} className="space-y-4">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-300 text-xs font-semibold w-fit">
+                <span>{currentPlayer.avatar}</span>
+                <span>{currentPlayer.name}</span>
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-white leading-snug">
+                {currentQ?.question[lang]}
+              </h3>
+              <input
+                type="text"
+                value={localInputText}
+                onChange={(e) => setLocalInputText(e.target.value)}
+                disabled={gradingAnswer}
+                placeholder={lang === 'th' ? 'พิมพ์คำตอบลับของคุณ...' : 'Type your secret answer...'}
+                className="w-full px-4 py-3.5 rounded-2xl bg-[#080d18] border border-slate-700 focus:border-emerald-500 focus:outline-none text-white text-sm"
+                autoFocus
+                required
+              />
+              <button
+                type="submit"
+                disabled={gradingAnswer || !localInputText.trim()}
+                className="btn-press w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {gradingAnswer ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {lang === 'th' ? 'AI กำลังตรวจคำตอบทุกคน...' : 'AI is grading all answers...'}
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    {localTurnIndex + 1 < localPlayers.length
+                      ? lang === 'th' ? 'ยืนยันคำตอบและส่งต่อ' : 'Lock & Pass'
+                      : lang === 'th' ? 'ส่งให้ AI ตรวจพร้อมกัน!' : 'Submit All to AI!'}
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              <h3 className="text-base font-bold text-white">{currentQ?.question[lang]}</h3>
+              <div className="space-y-2.5">
+                {localPlayers.map((p, idx) => {
+                  const ev = p.lastEval;
+                  return (
+                    <div
+                      key={idx}
+                      className={`p-3.5 rounded-2xl border ${
+                        (ev?.points || 0) > 0
+                          ? 'bg-emerald-500/10 border-emerald-500/40'
+                          : 'bg-[#080d18] border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-sm font-bold mb-1">
+                        <span className="flex items-center gap-2 text-white">
+                          <span>{p.avatar}</span>
+                          <span>{p.name}:</span>
+                          <span className="text-indigo-300">"{p.lastAnswer}"</span>
+                        </span>
+                        <span className="text-amber-400">
+                          +{ev?.points || 0} ({ev?.pct ?? 100}%)
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300">{ev?.comment?.[lang]}</p>
+                      <div className="text-[11px] text-emerald-400 font-semibold mt-1">
+                        🏔️ {lang === 'th' ? `หอคอยปัจจุบัน: ชั้น ${Math.floor(p.score / 50)} (${p.score} แต้ม)` : `Tower Floor ${Math.floor(p.score / 50)} (${p.score} pts)`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {localResults?.crowdSummary?.[lang] && (
+                <div className="p-3 rounded-xl bg-[#080d18] border border-slate-800 text-xs text-slate-300">
+                  📊 {localResults.crowdSummary[lang]}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleLocalNextRound}
+                className="btn-press w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2"
+              >
+                {localRound + 1 < questions.length
+                  ? lang === 'th' ? 'ข้อถัดไป' : 'Next Question'
+                  : lang === 'th' ? 'ดูสรุปผู้ชนะ' : 'See Winner'}
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // 7. โหมดห้องออนไลน์หลายคน (ONLINE MULTIPLAYER — เติมคำตอบ + AI ตรวจ)
+  // =========================================================================
+  if (screen === 'online_lobby' && roomData) {
+    const isHost = roomData.hostId === user.id;
+    const playersList = Object.values(roomData.players || {});
+
+    if (roomData.status === 'waiting') {
+      return (
+        <div className="relative min-h-screen bg-[#070b14] text-slate-100 p-4 sm:p-6 overflow-x-hidden">
+          <GlobalStyles />
+          <AmbientBackground />
+          <ToastBanner message={toastMsg} />
+          {renderTopBar()}
+          <div className="relative z-10 anim-fade-up w-full max-w-md mx-auto bg-[#0f1626]/95 border border-slate-800 rounded-3xl p-6 text-center shadow-2xl">
+            <span className="text-xs font-bold text-purple-400">
+              {lang === 'th' ? 'ห้องออนไลน์พร้อมแล้ว' : 'Online Room Ready'}
+            </span>
+            {roomData.topicLabel && (
+              <div className="mt-1 text-[11px] text-slate-400">
+                {lang === 'th' ? `หมวดคำถาม: ${roomData.topicLabel}` : `Topic: ${roomData.topicLabel}`}
+              </div>
+            )}
+            <div className="my-3 py-3 px-4 rounded-2xl bg-[#080d18] border border-purple-500/30 flex items-center justify-between gap-2">
+              <span className="text-2xl font-black tracking-[0.25em] text-white">{activeRoomCode}</span>
+              <button
+                type="button"
+                onClick={shareRoomInvite}
+                className="btn-press flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-bold text-white"
+              >
+                {copiedCode ? <Check className="w-3.5 h-3.5" /> : <Share2 className="w-3.5 h-3.5" />}
+                {copiedCode ? (lang === 'th' ? 'คัดลอกแล้ว' : 'Copied') : (lang === 'th' ? 'แชร์ลิงก์ห้อง' : 'Share Link')}
+              </button>
+            </div>
+            <div className="text-left mt-5 mb-6 space-y-2">
+              {playersList.map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-[#080d18] border border-slate-800"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">{p.avatar || '😎'}</span>
+                    <span className="text-sm font-semibold text-white">{p.displayName}</span>
+                  </div>
+                  {p.id === roomData.hostId && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold">
+                      Host
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            {isHost ? (
+              <button
+                type="button"
+                onClick={() => updateDoc(doc(db, 'rooms', activeRoomCode), { status: 'playing', currentRound: 0 })}
+                className="btn-press w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm flex items-center justify-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                {lang === 'th' ? 'เริ่มเกมเลย!' : 'Start Match!'}
+              </button>
+            ) : (
+              <p className="text-xs text-slate-400">
+                {lang === 'th' ? 'รอหัวหน้าห้องกดเริ่มเกม...' : 'Waiting for host...'}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (roomData.status === 'finished') {
+      const sorted = [...playersList].sort((a, b) => (b.score || 0) - (a.score || 0));
+      return (
+        <div className="relative min-h-screen bg-[#070b14] text-slate-100 p-4 sm:p-6 overflow-hidden">
+          <GlobalStyles />
+          <AmbientBackground />
+          <ToastBanner message={toastMsg} />
+          {renderTopBar()}
+          <div className="relative z-10 anim-pop w-full max-w-md mx-auto bg-[#0f1626] border border-slate-800 rounded-3xl p-6 text-center shadow-2xl">
+            <div className="text-4xl mb-2 anim-float">👑</div>
+            <h2 className="text-xl font-bold text-white mb-4">
+              {lang === 'th' ? 'สรุปผลห้องออนไลน์' : 'Match Results'}
+            </h2>
+            <div className="space-y-2 mb-5 text-left">
+              {sorted.map((p, idx) => (
+                <div
+                  key={p.id}
+                  className={`flex items-center justify-between p-3.5 rounded-2xl border ${
+                    idx === 0 ? 'bg-amber-500/10 border-amber-500/40' : 'bg-[#080d18] border-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xs font-bold text-slate-400">#{idx + 1}</span>
+                    <span className="text-xl">{p.avatar || '😎'}</span>
+                    <div>
+                      <div className="text-sm font-bold text-white">{p.displayName}</div>
+                      <div className="text-[11px] text-slate-400">
+                        🏔️ {lang === 'th' ? `ชั้น ${Math.floor((p.score || 0) / 50)}` : `Floor ${Math.floor((p.score || 0) / 50)}`}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-amber-400">{p.score || 0}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveRoomCode('');
+                setRoomData(null);
+                setScreen('lobby');
+              }}
+              className="btn-press w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm"
+            >
+              {lang === 'th' ? 'กลับหน้าหลัก' : 'Back to Lobby'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const currentQ = roomData.questions[roomData.currentRound];
+    const me = roomData.players?.[user.id];
+    const myAnswer = me?.currentAnswer ?? null;
+    const isReveal = roomData.status === 'reveal';
+
+    return (
+      <div className="relative min-h-screen bg-[#070b14] text-slate-100 p-4 sm:p-6 overflow-x-hidden">
+        <GlobalStyles />
+        <AmbientBackground />
+        <ToastBanner message={toastMsg} />
+        {renderTopBar()}
+        <div
+          key={roomData.currentRound}
+          className="relative z-10 anim-fade-up w-full max-w-xl mx-auto bg-[#0f1626]/95 border border-slate-800 rounded-3xl p-6 shadow-2xl"
+        >
+          <TowerClimbWidget score={me?.score || 0} avatar={user.avatar} lang={lang} compact />
+
+          <div className="flex items-center justify-between text-xs mb-4">
+            <span className="font-bold text-purple-400">
+              {lang === 'th'
+                ? `ห้อง ${activeRoomCode} • ข้อ ${roomData.currentRound + 1}/${roomData.questions.length}`
+                : `Room ${activeRoomCode} • Q${roomData.currentRound + 1}/${roomData.questions.length}`}
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">
+                {playersList.filter((p) => p.currentAnswer !== null).length}/{playersList.length}
+              </span>
+              <button
+                type="button"
+                onClick={shareRoomInvite}
+                className="text-purple-300 hover:text-white flex items-center gap-1"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          <h3 className="text-base sm:text-lg font-bold text-white mb-5 leading-snug">
+            {currentQ?.question[lang]}
+          </h3>
+
+          {!isReveal && myAnswer === null && (
+            <form onSubmit={submitOnlineAnswer} className="space-y-3">
+              <input
+                type="text"
+                value={onlineAnswerInput}
+                onChange={(e) => setOnlineAnswerInput(e.target.value)}
+                placeholder={lang === 'th' ? 'พิมพ์คำตอบสวนกระแสของคุณ...' : 'Type your rare answer...'}
+                className="w-full px-4 py-3.5 rounded-2xl bg-[#080d18] border border-slate-700 focus:border-purple-500 focus:outline-none text-white text-sm"
+                required
+              />
+              <button
+                type="submit"
+                disabled={!onlineAnswerInput.trim()}
+                className="btn-press w-full py-3.5 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Send className="w-4 h-4" />
+                {lang === 'th' ? 'ส่งคำตอบ' : 'Lock In Answer'}
+              </button>
+            </form>
+          )}
+
+          {!isReveal && myAnswer !== null && (
+            <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-center space-y-2">
+              <div className="text-xs text-purple-300 font-bold">
+                {lang === 'th' ? `ส่งคำตอบแล้ว: "${myAnswer}"` : `Submitted: "${myAnswer}"`}
+              </div>
+              <p className="text-xs text-slate-400">
+                {gradingAnswer
+                  ? lang === 'th' ? 'AI กำลังตรวจคำตอบของทุกคน...' : 'AI is grading everyone...'
+                  : lang === 'th' ? 'รอเพื่อนในห้องส่งคำตอบให้ครบ...' : 'Waiting for other players...'}
+              </p>
+              {isHost && !gradingAnswer && (
+                <button
+                  type="button"
+                  onClick={gradeAndRevealOnlineRoom}
+                  className="text-xs text-purple-400 underline"
+                >
+                  {lang === 'th' ? 'ให้ AI ตรวจและเฉลยทันที' : 'Grade & Reveal Now'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {isReveal && (
+            <div className="space-y-3">
+              {playersList.map((p) => {
+                const ev = p.lastEval;
+                return (
+                  <div
+                    key={p.id}
+                    className={`p-3.5 rounded-2xl border ${
+                      (ev?.points || 0) > 0
+                        ? 'bg-emerald-500/10 border-emerald-500/40'
+                        : 'bg-[#080d18] border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-sm font-bold mb-1">
+                      <span className="flex items-center gap-2 text-white">
+                        <span>{p.avatar || '😎'}</span>
+                        <span>{p.displayName}:</span>
+                        <span className="text-purple-300">"{p.currentAnswer || '-'}"</span>
+                      </span>
+                      <span className="text-amber-400">
+                        +{ev?.points || 0} ({ev?.pct ?? 100}%)
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300">{ev?.comment?.[lang]}</p>
+                  </div>
+                );
+              })}
+
+              {roomData.crowdSummary?.[lang] && (
+                <div className="p-3 rounded-xl bg-[#080d18] border border-slate-800 text-xs text-slate-300">
+                  📊 {roomData.crowdSummary[lang]}
+                </div>
+              )}
+
+              {isHost && (
+                <button
+                  type="button"
+                  onClick={nextOnlineRound}
+                  className="btn-press mt-2 w-full py-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm flex items-center justify-center gap-2"
+                >
+                  {roomData.currentRound + 1 < roomData.questions.length
+                    ? lang === 'th' ? 'ข้อถัดไป' : 'Next Question'
+                    : lang === 'th' ? 'สรุปผลผู้ชนะ' : 'Results'}
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+// END OF FILE
