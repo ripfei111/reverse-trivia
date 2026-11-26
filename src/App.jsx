@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db } from './firebase';
 import {
   doc,
@@ -10,365 +10,470 @@ import {
   query,
   orderBy,
   limit,
-  getDocs,
-  arrayUnion,
-  arrayRemove,
-  deleteField,
+  serverTimestamp,
+  increment
 } from 'firebase/firestore';
 import {
-  Trophy,
+  Sparkles,
   Users,
+  User,
+  Globe,
+  LogIn,
+  UserPlus,
+  LogOut,
+  Trophy,
   Play,
   Copy,
   Check,
-  QrCode,
-  LogOut,
-  ShieldAlert,
-  Ban,
-  Crown,
-  Clock,
-  Sparkles,
-  RefreshCw,
   ArrowRight,
-  Globe,
-  UserX,
   RotateCcw,
-  Send,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Zap,
+  Crown,
   Flame,
-  Target,
-  Plus,
-  LogIn,
-  Unlock,
-  SkipForward,
-  Loader2,
-  Link2,
+  AlertCircle,
+  Smartphone,
+  Wifi,
+  ChevronLeft,
+  Eye,
+  EyeOff,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 
-// ==========================================
-// CONSTANTS & HELPERS
-// ==========================================
+const AVATARS = ['😎', '🦊', '🐱', '🚀', '👾', '🦄', '🐸', '🔥'];
 
 const CATEGORIES = [
-  { id: 'general', th: 'ความรู้รอบตัว', en: 'General Knowledge' },
-  { id: 'food', th: 'อาหารและเครื่องดื่ม', en: 'Food & Drinks' },
-  { id: 'geography', th: 'ภูมิศาสตร์และประเทศ', en: 'Geography & Countries' },
-  { id: 'pop', th: 'หนัง เกม และเพลง', en: 'Movies, Games & Music' },
-  { id: 'science', th: 'วิทยาศาสตร์และสัตว์', en: 'Science & Animals' },
-  { id: 'thai', th: 'เรื่องไทยๆ', en: 'Thai Culture & Local' },
+  { id: 'all', th: 'สุ่มทุกหมวด', en: 'All Categories' },
+  { id: 'food', th: 'อาหารและของกิน', en: 'Food & Drinks' },
+  { id: 'daily', th: 'ชีวิตประจำวัน', en: 'Daily Life' },
+  { id: 'pop', th: 'บันเทิงและไลฟ์สไตล์', en: 'Pop Culture & Lifestyle' },
+  { id: 'travel', th: 'ท่องเที่ยวและสถานที่', en: 'Travel & Places' }
 ];
 
-const SOLO_MODES = [
+// ชุดคำถามสำรองในตัว (ใช้ทันทีหาก AI โหลดช้าหรือเชื่อมต่อไม่ได้)
+const FALLBACK_QUESTIONS = [
   {
-    id: 'classic',
-    icon: Target,
-    titleTh: 'คลาสสิก (5 ข้อ)',
-    titleEn: 'Classic (5 Rounds)',
-    descTh: 'ทายคำตอบที่ถูกต้องแต่แรร์ที่สุด สะสมคะแนนสูงสุดใน 5 ข้อ',
-    descEn: 'Give the rarest valid answers across 5 rounds.',
+    category: 'food',
+    question: {
+      th: 'เวลาไปร้านอาหารตามสั่ง เมนูไหนที่คนมักจะสั่ง "น้อยที่สุด" เมื่อคิดไม่ออก?',
+      en: 'At a local street food stall, which dish do people order the LEAST when they cannot decide?'
+    },
+    options: [
+      { th: 'ผัดกะเพราหมูสับไข่ดาว', en: 'Stir-fried Basil Pork with Fried Egg', pct: 46 },
+      { th: 'ข้าวผัดหมู / ไก่', en: 'Pork / Chicken Fried Rice', pct: 27 },
+      { th: 'หมูกระเทียมราดข้าว', en: 'Garlic Pork over Rice', pct: 18 },
+      { th: 'สุกี้แห้งรวมมิตร', en: 'Dry Sukiyaki Mixed', pct: 9 }
+    ]
   },
   {
-    id: 'survival',
-    icon: Flame,
-    titleTh: 'เอาชีวิตรอด (3 หัวใจ)',
-    titleEn: 'Survival (3 Lives)',
-    descTh: 'ตอบผิดหรือโดนคำต้องห้ามเสีย 1 หัวใจ เล่นยาวจนกว่าจะหมด',
-    descEn: 'Wrong or banned answers cost 1 life. Survive as long as you can.',
+    category: 'daily',
+    question: {
+      th: 'เมื่อตื่นนอนตอนเช้า สิ่งแรกที่คนส่วนใหญ่หยิบจับหรือทำ "น้อยที่สุด" คืออะไร?',
+      en: 'Right after waking up, what is the LEAST common first thing people do?'
+    },
+    options: [
+      { th: 'หยิบโทรศัพท์มือถือมาเช็กแจ้งเตือน', en: 'Check smartphone notifications', pct: 49 },
+      { th: 'กดเลื่อนปลุก (Snooze) แล้วนอนต่อ', en: 'Hit snooze and sleep more', pct: 26 },
+      { th: 'เดินเข้าห้องน้ำล้างหน้าแปรงฟัน', en: 'Go to the bathroom to wash up', pct: 17 },
+      { th: 'ดื่มน้ำเปล่า 1 แก้วทันที', en: 'Drink a glass of plain water immediately', pct: 8 }
+    ]
   },
   {
-    id: 'blitz',
-    icon: Zap,
-    titleTh: 'สปีดบลิตซ์ (15 วิ)',
-    titleEn: 'Speed Blitz (15s)',
-    descTh: 'จำกัดเวลาตอบข้อละ 15 วินาที ท้าความไวและไหวพริบ',
-    descEn: 'Only 15 seconds per question. Think fast!',
+    category: 'pop',
+    question: {
+      th: 'เวลาเข้าโรงภาพยนตร์ คนดูมักจะเลือกที่นั่งโซนไหน "น้อยที่สุด"?',
+      en: 'When booking movie tickets, which seating zone do people pick the LEAST?'
+    },
+    options: [
+      { th: 'แถวกลางโรง ตรงกลางจอพอดี', en: 'Middle rows, dead center', pct: 44 },
+      { th: 'แถวหลังสุด (Honeymoon / Sofa)', en: 'Very back row / VIP seats', pct: 31 },
+      { th: 'แถวค่อนไปทางด้านหลังริมทางเดิน', en: 'Upper rows near the aisle', pct: 18 },
+      { th: 'แถวหน้าสุดใกล้จอภาพยนตร์', en: 'Front rows closest to the screen', pct: 7 }
+    ]
   },
-];
-
-const DIFFICULTIES = [
-  { id: 'easy', th: 'ง่าย', en: 'Easy' },
-  { id: 'medium', th: 'กลาง', en: 'Medium' },
-  { id: 'hard', th: 'ยาก', en: 'Hard' },
-];
-
-const normalizeText = (str = '') =>
-  String(str)
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ');
-
-const sanitizeId = (raw = '') =>
-  String(raw)
-    .trim()
-    .replace(/[.#$/\[\]\s]+/g, '_')
-    .slice(0, 24);
-
-const generateRoomCode = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let out = '';
-  for (let i = 0; i < 6; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
+  {
+    category: 'travel',
+    question: {
+      th: 'เวลาจัดกระเป๋าไปเที่ยวต่างจังหวัด 3 วัน 2 คืน ของชิ้นไหนที่คนมักลืมหรือพกไป "น้อยที่สุด"?',
+      en: 'When packing for a 3-day weekend trip, which item do people pack the LEAST?'
+    },
+    options: [
+      { th: 'สายชาร์จแบตและพาวเวอร์แบงก์', en: 'Phone charger and power bank', pct: 45 },
+      { th: 'เสื้อผ้าชุดเก่งสำหรับถ่ายรูป', en: 'Extra outfits for photos', pct: 29 },
+      { th: 'ครีมกันแดดและสกินแคร์', en: 'Sunscreen and skincare', pct: 17 },
+      { th: 'ชุดปฐมพยาบาล / ยาสามัญประจำบ้าน', en: 'Mini first-aid kit / basic medicine', pct: 9 }
+    ]
+  },
+  {
+    category: 'food',
+    question: {
+      th: 'เวลาสั่งชานมไข่มุกหรือกาแฟเย็น ระดับความหวานแบบไหนที่คนสั่ง "น้อยที่สุด"?',
+      en: 'When ordering iced bubble tea or coffee, which sweetness level is ordered the LEAST?'
+    },
+    options: [
+      { th: 'หวานน้อย (25% - 50%)', en: 'Less sweet (25% - 50%)', pct: 43 },
+      { th: 'หวานปกติ (100%)', en: 'Normal sweet (100%)', pct: 28 },
+      { th: 'ไม่หวานเลย (0%)', en: 'No sugar (0%)', pct: 20 },
+      { th: 'หวานพิเศษ (125% ขึ้นไป)', en: 'Extra sweet (125%+)', pct: 9 }
+    ]
+  },
+  {
+    category: 'daily',
+    question: {
+      th: 'เวลาแบตมือถือเหลือต่ำกว่า 10% นอกบ้าน คนส่วนใหญ่มักจะทำสิ่งไหน "น้อยที่สุด"?',
+      en: 'When phone battery drops below 10% outside, what do people do the LEAST?'
+    },
+    options: [
+      { th: 'เปิดโหมดประหยัดพลังงานและลดแสงจอ', en: 'Turn on Low Power Mode & dim screen', pct: 44 },
+      { th: 'รีบหยิบพาวเวอร์แบงก์ขึ้นมาชาร์จ', en: 'Plug into a power bank', pct: 30 },
+      { th: 'เล่นต่อจนกว่าเครื่องจะดับไปเอง', en: 'Keep scrolling until it dies', pct: 18 },
+      { th: 'เปิดโหมดเครื่องบิน (Airplane Mode)', en: 'Switch on Airplane Mode', pct: 8 }
+    ]
+  },
+  {
+    category: 'pop',
+    question: {
+      th: 'เวลาดูซีรีส์หรืออนิเมะเรื่องโปรด ช่วงไหนที่คนกดข้าม (Skip) "น้อยที่สุด"?',
+      en: 'When binge-watching a favorite series or anime, which part do people skip the LEAST?'
+    },
+    options: [
+      { th: 'ฉากไคลแมกซ์สำคัญของตอน', en: 'The main climax scene of the episode', pct: 48 },
+      { th: 'เพลงเปิด (Opening Theme)', en: 'The Opening Theme song', pct: 24 },
+      { th: 'ตัวอย่างตอนต่อไป (Next Episode Preview)', en: 'Next episode preview', pct: 19 },
+      { th: 'เครดิตท้ายเรื่อง (End Credits)', en: 'End credits roll', pct: 9 }
+    ]
+  },
+  {
+    category: 'travel',
+    question: {
+      th: 'เวลาไปเดินห้างสรรพสินค้าในวันหยุด โซนไหนที่คนแวะเดินเข้าไป "น้อยที่สุด"?',
+      en: 'When visiting a shopping mall on weekends, which zone do people visit the LEAST?'
+    },
+    options: [
+      { th: 'โซนร้านอาหารและคาเฟ่', en: 'Restaurants & Cafes zone', pct: 45 },
+      { th: 'ซูเปอร์มาร์เก็ตและร้านสะดวกซื้อ', en: 'Supermarket & Grocery', pct: 27 },
+      { th: 'โซนเสื้อผ้าแฟชั่นและเครื่องสำอาง', en: 'Fashion & Cosmetics zone', pct: 19 },
+      { th: 'โซนเฟอร์นิเจอร์และของแต่งบ้านชิ้นใหญ่', en: 'Large Furniture & Home Decor zone', pct: 9 }
+    ]
+  },
+  {
+    category: 'food',
+    question: {
+      th: 'เวลาทานก๋วยเตี๋ยว เครื่องปรุงชนิดไหนที่คนมักตักใส่ชาม "น้อยที่สุด"?',
+      en: 'When eating noodle soup, which table condiment do people add the LEAST?'
+    },
+    options: [
+      { th: 'พริกป่น', en: 'Chili flakes', pct: 42 },
+      { th: 'น้ำส้มสายชู / พริกดอง', en: 'Vinegar / Pickled chili', pct: 26 },
+      { th: 'น้ำตาลทราย', en: 'White sugar', pct: 21 },
+      { th: 'น้ำปลา', en: 'Fish sauce', pct: 11 }
+    ]
+  },
+  {
+    category: 'daily',
+    question: {
+      th: 'เวลาฝนตกหนักตอนเลิกงาน วิธีกลับบ้านแบบไหนที่คนเลือกใช้ "น้อยที่สุด"?',
+      en: 'When heavy rain hits right after work/school, which way home do people choose the LEAST?'
+    },
+    options: [
+      { th: 'รอในอาคารหรือร้านกาแฟจนฝนซา', en: 'Wait indoors/cafe until rain stops', pct: 41 },
+      { th: 'เรียกแท็กซี่หรือรถผ่านแอป', en: 'Call a taxi or ride-hailing car', pct: 32 },
+      { th: 'กางร่มเดินฝ่าฝนไปขึ้นรถสาธารณะ', en: 'Use an umbrella to catch transit', pct: 20 },
+      { th: 'วิ่งฝ่าฝนตัวเปล่าแบบไม่กางร่ม', en: 'Run straight through the rain without umbrella', pct: 7 }
+    ]
+  },
+  {
+    category: 'pop',
+    question: {
+      th: 'เวลาตั้งรหัสผ่านบัญชีใหม่ รูปแบบไหนที่คนทั่วไปใช้ตั้ง "น้อยที่สุด"?',
+      en: 'When creating a new account password, which pattern do everyday users pick the LEAST?'
+    },
+    options: [
+      { th: 'วันเดือนปีเกิดของตัวเอง', en: 'Their own birthday', pct: 40 },
+      { th: 'ชื่อเล่นตามด้วยตัวเลขง่าย ๆ', en: 'Nickname + simple numbers', pct: 31 },
+      { th: 'เบอร์โทรศัพท์มือถือ', en: 'Mobile phone number', pct: 20 },
+      { th: 'รหัสสุ่มยาว 16 ตัวอักษรพร้อมสัญลักษณ์พิเศษ', en: 'Random 16-char string with symbols', pct: 9 }
+    ]
+  },
+  {
+    category: 'travel',
+    question: {
+      th: 'เวลาขึ้นเครื่องบิน ผู้โดยสารมักเลือกทำกิจกรรมไหนระหว่างบิน "น้อยที่สุด"?',
+      en: 'During a flight, which activity do passengers do the LEAST?'
+    },
+    options: [
+      { th: 'นอนหลับพักผ่อน', en: 'Sleeping / napping', pct: 46 },
+      { th: 'ฟังเพลงหรือดูหนังที่โหลดไว้', en: 'Listening to music / watching downloaded movies', pct: 29 },
+      { th: 'ถ่ายรูปวิวเมฆนอกหน้าต่าง', en: 'Taking window photos of clouds', pct: 17 },
+      { th: 'หยิบนิตยสารหน้าที่นั่งขึ้นมาอ่าน', en: 'Reading the in-flight seatback magazine', pct: 8 }
+    ]
   }
-  return out;
-};
+];
 
-const extractJson = (rawText = '') => {
-  const cleaned = String(rawText)
-    .replace(/```json/gi, '')
-    .replace(/```/g, '')
-    .trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    const start = cleaned.indexOf('{');
-    const end = cleaned.lastIndexOf('}');
-    if (start !== -1 && end !== -1 && end > start) {
-      return JSON.parse(cleaned.slice(start, end + 1));
+function getLowestPctIndex(options) {
+  let minIdx = 0;
+  for (let i = 1; i < options.length; i++) {
+    if (options[i].pct < options[minIdx].pct) {
+      minIdx = i;
     }
-    throw new Error('AI ตอบกลับไม่เป็นรูปแบบ JSON กรุณาลองใหม่');
   }
-};
-
-async function callGemini({ prompt, systemInstruction }) {
-  const res = await fetch('/api/gemini', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      prompt,
-      systemInstruction,
-      responseMimeType: 'application/json',
-    }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) {
-    throw new Error(data.error || `HTTP ${res.status}`);
-  }
-  return extractJson(data.text);
+  return minIdx;
 }
 
-async function generateQuestionAI({ category, difficulty, lang, usedQuestions = [] }) {
-  const catObj = CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
-  const catLabel = lang === 'th' ? catObj.th : catObj.en;
-  const avoidList = usedQuestions.slice(-8).join(' | ');
-
-  const systemInstruction =
-    lang === 'th'
-      ? 'คุณคือผู้สร้างคำถามเกม Reverse Trivia (ทายสวนกระแส) ตอบกลับเป็น JSON เท่านั้น'
-      : 'You are a Reverse Trivia game host. Return valid JSON only.';
-
-  const prompt =
-    lang === 'th'
-      ? `สร้างคำถาม Reverse Trivia ภาษาไทย 1 ข้อ หมวด "${catLabel}" ระดับความยาก "${difficulty}"
-กติกาของคำถามที่ดี:
-- เป็นคำถามปลายเปิดที่มีคำตอบถูกต้องหลากหลาย (อย่างน้อย 15 คำตอบขึ้นไป) เช่น "ชื่อจังหวัดในภาคอีสาน", "ชื่อประเทศที่ขึ้นต้นด้วยตัว S", "ชื่อเมนูอาหารไทยที่มีคำว่า ผัด"
-- ห้ามซ้ำกับคำถามเหล่านี้: ${avoidList || 'ไม่มี'}
-- ระบุคำตอบยอดฮิตที่คนส่วนใหญ่มักนึกถึงเป็นอันดับแรก 3 คำ (defaultBans) เพื่อใช้เป็นคำต้องห้าม
-
-ส่งกลับเป็น JSON รูปแบบนี้เท่านั้น:
-{
-  "question": "ข้อความคำถามภาษาไทยที่สั้นและเข้าใจง่าย",
-  "hint": "คำใบ้สั้นๆ หรือขอบเขตคำตอบ",
-  "defaultBans": ["คำตอบยอดฮิต1", "คำตอบยอดฮิต2", "คำตอบยอดฮิต3"]
-}`
-      : `Create 1 open-ended Reverse Trivia question in English for category "${catLabel}", difficulty "${difficulty}".
-Rules:
-- Must have at least 15 valid factual answers (e.g., "Name a country in Europe", "Name a Pixar movie").
-- Do NOT repeat: ${avoidList || 'None'}.
-- Provide 3 most obvious/common answers in "defaultBans".
-
-Return JSON ONLY:
-{
-  "question": "Short clear question",
-  "hint": "Brief scope or hint",
-  "defaultBans": ["Obvious1", "Obvious2", "Obvious3"]
-}`;
-
-  const result = await callGemini({ prompt, systemInstruction });
-  if (!result?.question) {
-    throw new Error('ไม่สามารถสร้างคำถามได้ กรุณาลองใหม่');
-  }
-  return {
-    question: String(result.question).trim(),
-    hint: String(result.hint || '').trim(),
-    defaultBans: Array.isArray(result.defaultBans)
-      ? result.defaultBans.map((b) => String(b).trim()).filter(Boolean).slice(0, 4)
-      : [],
-  };
+function getRankByPct(options, selectedIdx) {
+  // เรียงจาก % น้อยไปมาก (อันดับ 0 คือ % น้อยที่สุด = ชนะขาด)
+  const sortedPcts = [...options.map((o) => o.pct)].sort((a, b) => a - b);
+  const chosenPct = options[selectedIdx].pct;
+  return sortedPcts.indexOf(chosenPct);
 }
 
-async function gradeAnswersBatchAI({ question, answers, lang }) {
-  const systemInstruction =
-    lang === 'th'
-      ? 'คุณคือกรรมการตัดสินเกม Reverse Trivia ที่ยุติธรรมและมีอารมณ์ขัน ตอบกลับเป็น JSON เท่านั้น'
-      : 'You are a fair and witty Reverse Trivia judge. Return valid JSON only.';
-
-  const itemsText = answers
-    .map((a) => `- id: "${a.id}", answer: "${a.text.replace(/"/g, "'")}"`)
-    .join('\n');
-
-  const prompt =
-    lang === 'th'
-      ? `คำถาม: "${question}"
-รายชื่อคำตอบที่ต้องตรวจ:
-${itemsText}
-
-เกณฑ์การให้คะแนน Reverse Trivia:
-1. ตรวจว่าคำตอบ "ถูกต้องตามความจริงและตรงคำถาม" หรือไม่ (isValid: true/false) ยืดหยุ่นเรื่องการสะกดผิดเล็กน้อยได้ถ้าสื่อความหมายถูกต้องชัดเจน
-2. ถ้าถูกต้อง ให้คะแนนความแรร์ (rarity) ตั้งแต่ 10 ถึง 100:
-   - 10-35 = คำตอบธรรมดา คนทั่วไปนึกออกง่าย
-   - 36-70 = คำตอบดี ค่อนข้างเฉพาะตัว
-   - 71-100 = คำตอบแรร์มาก ลึก เหนือความคาดหมาย แต่ถูกต้องจริง!
-3. ถ้าไม่ถูกต้อง ให้ isValid: false และ rarity: 0
-4. เขียนคำอธิบายสั้นๆ แซวสนุกๆ ภาษาไทย (reason) ไม่เกิน 1 ประโยค
-
-ตอบกลับเป็น JSON รูปแบบนี้เท่านั้น:
-{
-  "results": {
-    "ID_ผู้เล่น": { "isValid": true, "rarity": 85, "reason": "คำอธิบายสั้นๆ" }
+function calculateRoundPoints(options, selectedIdx, currentStreak = 0) {
+  const rank = getRankByPct(options, selectedIdx);
+  if (rank === 0) {
+    return { points: 150 + currentStreak * 25, isReverseWinner: true, rank };
   }
-}`
-      : `Question: "${question}"
-Answers to grade:
-${itemsText}
-
-Grading rules:
-1. Check if each answer is factually valid for the question (isValid: true/false). Allow minor typos.
-2. If valid, score rarity from 10 to 100 (10 = super common, 100 = ultra rare/obscure but undeniably true).
-3. If invalid, set isValid: false and rarity: 0.
-4. Provide a short witty 1-sentence reason in English.
-
-Return JSON ONLY:
-{
-  "results": {
-    "PLAYER_ID": { "isValid": true, "rarity": 85, "reason": "Short reason" }
+  if (rank === 1) {
+    return { points: 80, isReverseWinner: false, rank };
   }
-}`;
-
-  const data = await callGemini({ prompt, systemInstruction });
-  return data?.results || {};
+  if (rank === 2) {
+    return { points: 30, isReverseWinner: false, rank };
+  }
+  return { points: 0, isReverseWinner: false, rank };
 }
-
-// ==========================================
-// MAIN COMPONENT
-// ==========================================
 
 export default function App() {
   const [lang, setLang] = useState('th');
   const [user, setUser] = useState(null);
-  const [authId, setAuthId] = useState('');
-  const [authPin, setAuthPin] = useState('');
+
+  // Auth states
+  const [authTab, setAuthTab] = useState('login'); // 'login' | 'register'
+  const [playerIdInput, setPlayerIdInput] = useState('');
+  const [pinInput, setPinInput] = useState('');
+  const [confirmPinInput, setConfirmPinInput] = useState('');
+  const [selectedAvatar, setSelectedAvatar] = useState('😎');
+  const [showPin, setShowPin] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
+  const [suggestRegister, setSuggestRegister] = useState(false);
 
-  // Navigation & Global notices
-  const [view, setView] = useState('home'); // 'home' | 'solo' | 'multi'
-  const [globalNotice, setGlobalNotice] = useState(null); // { type: 'error'|'info'|'success', text }
-  const [pendingRoomCode, setPendingRoomCode] = useState('');
+  // Screen navigation: 'lobby' | 'solo' | 'local_setup' | 'local_game' | 'online_lobby' | 'online_game'
+  const [screen, setScreen] = useState('lobby');
 
-  // Leaderboard
+  // Shared game settings
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [totalRounds, setTotalRounds] = useState(5);
   const [leaderboard, setLeaderboard] = useState([]);
 
-  // Solo state
-  const [gameMode, setGameMode] = useState('classic');
-  const [category, setCategory] = useState('general');
-  const [difficulty, setDifficulty] = useState('medium');
-  const [soloState, setSoloState] = useState(null);
-  const [soloAnswer, setSoloAnswer] = useState('');
-  const [soloTimer, setSoloTimer] = useState(0);
-  const [soloBusy, setSoloBusy] = useState(false);
+  // Question pool & loading
+  const [questions, setQuestions] = useState([]);
+  const [questionSource, setQuestionSource] = useState('ai'); // 'ai' | 'classic'
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
 
-  // Multiplayer state
-  const [joinCodeInput, setJoinCodeInput] = useState('');
-  const [roomId, setRoomId] = useState(null);
-  const [room, setRoom] = useState(null);
-  const [mpAnswer, setMpAnswer] = useState('');
-  const [mpBanInput, setMpBanInput] = useState('');
-  const [mpTimeLeft, setMpTimeLeft] = useState(0);
-  const [mpActionBusy, setMpActionBusy] = useState(false);
-  const [copiedLink, setCopiedLink] = useState(false);
-  const [showQrModal, setShowQrModal] = useState(false);
-  const [hostGradingError, setHostGradingError] = useState('');
+  // Solo game states
+  const [soloRound, setSoloRound] = useState(0);
+  const [soloScore, setSoloScore] = useState(0);
+  const [soloStreak, setSoloStreak] = useState(0);
+  const [soloBestStreak, setSoloBestStreak] = useState(0);
+  const [soloPicked, setSoloPicked] = useState(null);
+  const [soloFinished, setSoloFinished] = useState(false);
 
-  // Host transition guard to prevent race conditions / hanging
-  const phaseLockRef = useRef('');
+  // Local Pass & Play (โหมดผู้เล่นหลายคนในเครื่องเดียว) states
+  const [localPlayers, setLocalPlayers] = useState([
+    { name: 'ผู้เล่น 1', avatar: '😎', score: 0 },
+    { name: 'ผู้เล่น 2', avatar: '🦊', score: 0 }
+  ]);
+  const [localRound, setLocalRound] = useState(0);
+  const [localTurnIndex, setLocalTurnIndex] = useState(0);
+  const [localPrivacyScreen, setLocalPrivacyScreen] = useState(true);
+  const [localAnswers, setLocalAnswers] = useState({}); // { playerIndex: optionIndex }
+  const [localReveal, setLocalReveal] = useState(false);
+  const [localFinished, setLocalFinished] = useState(false);
 
-  const t = (th, en) => (lang === 'th' ? th : en);
+  // Online Multiplayer states
+  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [activeRoomCode, setActiveRoomCode] = useState('');
+  const [roomData, setRoomData] = useState(null);
+  const [onlineLoading, setOnlineLoading] = useState(false);
+  const [onlineError, setOnlineError] = useState('');
+  const [copiedCode, setCopiedCode] = useState(false);
 
-  // Check if current URL is a Vercel preview deployment URL
-  const isVercelPreviewUrl =
-    typeof window !== 'undefined' &&
-    window.location.hostname.includes('vercel.app') &&
-    (window.location.hostname.includes('-git-') ||
-      window.location.hostname.includes('-projects.vercel.app'));
-
-  // 1. On initial mount: read ?room=CODE and restore saved session
+  // โหลดเซสชันที่จำไว้ในเครื่อง
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const codeFromUrl = (params.get('room') || '').trim().toUpperCase();
-    if (codeFromUrl) {
-      setPendingRoomCode(codeFromUrl);
-      setJoinCodeInput(codeFromUrl);
-    }
-
-    try {
-      const saved = localStorage.getItem('rt_user_session');
-      if (saved) {
+    const saved = localStorage.getItem('reverse_trivia_user');
+    if (saved) {
+      try {
         const parsed = JSON.parse(saved);
         if (parsed?.id) {
           setUser(parsed);
+          setLocalPlayers([
+            { name: parsed.displayName || parsed.id, avatar: parsed.avatar || '😎', score: 0 },
+            { name: 'ผู้เล่น 2', avatar: '🦊', score: 0 }
+          ]);
         }
+      } catch (e) {
+        localStorage.removeItem('reverse_trivia_user');
       }
-    } catch {
-      // ignore storage errors
+    }
+
+    // เช็กพารามิเตอร์ ?room= บน URL
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get('room');
+    if (roomParam) {
+      setRoomCodeInput(roomParam.toUpperCase());
     }
   }, []);
 
-  // 2. Fetch leaderboard
-  const loadLeaderboard = async () => {
+  // โหลดตารางอันดับผู้เล่นสูงสุดจาก Firestore
+  useEffect(() => {
+    if (!user || user.isGuest) return;
+    const q = query(collection(db, 'users'), orderBy('score', 'desc'), limit(5));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = [];
+        snap.forEach((docSnap) => {
+          list.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        setLeaderboard(list);
+      },
+      () => {
+        // ข้ามเงียบ ๆ หากยังไม่มีข้อมูล
+      }
+    );
+    return () => unsub();
+  }, [user]);
+
+  // ซิงก์ห้องออนไลน์แบบเรียลไทม์
+  useEffect(() => {
+    if (!activeRoomCode) return;
+    const roomRef = doc(db, 'rooms', activeRoomCode);
+    const unsub = onSnapshot(
+      roomRef,
+      (snap) => {
+        if (snap.exists()) {
+          setRoomData(snap.data());
+        } else {
+          setOnlineError(lang === 'th' ? 'ไม่พบห้องนี้หรือห้องถูกปิดไปแล้ว' : 'Room not found or closed');
+          setActiveRoomCode('');
+          setRoomData(null);
+          setScreen('lobby');
+        }
+      },
+      (err) => {
+        setOnlineError(err.message);
+      }
+    );
+    return () => unsub();
+  }, [activeRoomCode, lang]);
+
+  // ฟังก์ชันเข้าสู่ระบบ (Login)
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthSuccess('');
+    setSuggestRegister(false);
+
+    const rawName = playerIdInput.trim();
+    const cleanId = rawName.toLowerCase();
+
+    if (cleanId.length < 3) {
+      setAuthError(
+        lang === 'th'
+          ? 'กรุณากรอกชื่อผู้เล่นอย่างน้อย 3 ตัวอักษร'
+          : 'Player ID must be at least 3 characters'
+      );
+      return;
+    }
+    if (!/^\d{4}$/.test(pinInput)) {
+      setAuthError(
+        lang === 'th'
+          ? 'กรุณากรอกรหัส PIN ตัวเลข 4 หลัก'
+          : 'Please enter a 4-digit numeric PIN'
+      );
+      return;
+    }
+
+    setAuthLoading(true);
     try {
-      const q = query(collection(db, 'users'), orderBy('bestScore', 'desc'), limit(10));
-      const snap = await getDocs(q);
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setLeaderboard(list);
-    } catch {
-      // ignore leaderboard errors silently
+      const userRef = doc(db, 'users', cleanId);
+      const snap = await getDoc(userRef);
+
+      if (!snap.exists()) {
+        setAuthError(
+          lang === 'th'
+            ? `ไม่พบชื่อผู้เล่น "${rawName}" ในระบบ ต้องการสมัครเป็น ID ใหม่เลยไหมครับ?`
+            : `Player ID "${rawName}" not found. Would you like to register it now?`
+        );
+        setSuggestRegister(true);
+        setAuthLoading(false);
+        return;
+      }
+
+      const data = snap.data();
+      if (data.pin !== pinInput) {
+        setAuthError(
+          lang === 'th' ? 'รหัส PIN 4 หลักไม่ถูกต้อง กรุณาลองใหม่' : 'Incorrect 4-digit PIN'
+        );
+        setAuthLoading(false);
+        return;
+      }
+
+      const loggedUser = {
+        id: cleanId,
+        displayName: data.displayName || rawName,
+        avatar: data.avatar || '😎',
+        score: data.score || 0,
+        gamesPlayed: data.gamesPlayed || 0,
+        bestStreak: data.bestStreak || 0
+      };
+
+      setUser(loggedUser);
+      localStorage.setItem('reverse_trivia_user', JSON.stringify(loggedUser));
+      setLocalPlayers([
+        { name: loggedUser.displayName, avatar: loggedUser.avatar, score: 0 },
+        { name: lang === 'th' ? 'ผู้เล่น 2' : 'Player 2', avatar: '🦊', score: 0 }
+      ]);
+    } catch (err) {
+      setAuthError(
+        (lang === 'th' ? 'เชื่อมต่อฐานข้อมูลไม่สำเร็จ: ' : 'Database error: ') + err.message
+      );
+    } finally {
+      setAuthLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (user) {
-      loadLeaderboard();
-    }
-  }, [user, view]);
-
-  // 3. Auto-join room from URL link/QR right after login
-  useEffect(() => {
-    if (user && pendingRoomCode && !roomId) {
-      const code = pendingRoomCode;
-      setPendingRoomCode('');
-      handleJoinRoom(code);
-    }
-  }, [user, pendingRoomCode, roomId]);
-
-  // ==========================================
-  // AUTHENTICATION (Player ID + 4-digit PIN)
-  // ==========================================
-
-  const handleAuth = async (e) => {
+  // ฟังก์ชันสมัคร ID ใหม่ (Register)
+  const handleRegister = async (e) => {
     e.preventDefault();
     setAuthError('');
-    const cleanId = sanitizeId(authId);
-    const cleanPin = authPin.trim();
+    setAuthSuccess('');
+    setSuggestRegister(false);
 
-    if (cleanId.length < 2) {
-      setAuthError(t('กรุณาตั้งชื่อผู้เล่นอย่างน้อย 2 ตัวอักษร', 'Player ID must be at least 2 characters.'));
+    const rawName = playerIdInput.trim();
+    const cleanId = rawName.toLowerCase();
+
+    if (cleanId.length < 3 || cleanId.length > 20) {
+      setAuthError(
+        lang === 'th'
+          ? 'ชื่อผู้เล่นต้องมีความยาว 3–20 ตัวอักษร'
+          : 'Player ID must be 3–20 characters long'
+      );
       return;
     }
-    if (!/^\d{4}$/.test(cleanPin)) {
-      setAuthError(t('กรุณากรอกรหัส PIN ตัวเลข 4 หลัก', 'Please enter a 4-digit numeric PIN.'));
+    if (!/^\d{4}$/.test(pinInput)) {
+      setAuthError(
+        lang === 'th'
+          ? 'กรุณาตั้งรหัส PIN เป็นตัวเลข 4 หลัก'
+          : 'PIN must be exactly 4 digits'
+      );
+      return;
+    }
+    if (pinInput !== confirmPinInput) {
+      setAuthError(
+        lang === 'th'
+          ? 'รหัส PIN ทั้ง 2 ช่องไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง'
+          : 'PINs do not match'
+      );
       return;
     }
 
@@ -378,2123 +483,1248 @@ export default function App() {
       const snap = await getDoc(userRef);
 
       if (snap.exists()) {
-        const data = snap.data();
-        if (String(data.pin) !== cleanPin) {
-          setAuthError(t('ชื่อนี้มีคนใช้แล้ว หรือรหัส PIN ไม่ถูกต้อง', 'Player ID already exists or PIN is incorrect.'));
-          setAuthLoading(false);
-          return;
-        }
-        const sessionUser = {
-          id: cleanId,
-          displayName: data.displayName || cleanId,
-          bestScore: data.bestScore || 0,
-        };
-        setUser(sessionUser);
-        localStorage.setItem('rt_user_session', JSON.stringify(sessionUser));
-      } else {
-        const newProfile = {
-          displayName: authId.trim().slice(0, 24) || cleanId,
-          pin: cleanPin,
-          bestScore: 0,
-          gamesPlayed: 0,
-          createdAt: Date.now(),
-        };
-        await setDoc(userRef, newProfile);
-        const sessionUser = {
-          id: cleanId,
-          displayName: newProfile.displayName,
-          bestScore: 0,
-        };
-        setUser(sessionUser);
-        localStorage.setItem('rt_user_session', JSON.stringify(sessionUser));
+        setAuthError(
+          lang === 'th'
+            ? `ชื่อผู้เล่น "${rawName}" มีคนใช้แล้ว กรุณาใช้ชื่ออื่น หรือสลับไปแท็บเข้าสู่ระบบ`
+            : `Player ID "${rawName}" is already taken.`
+        );
+        setAuthLoading(false);
+        return;
       }
+
+      const newUserDoc = {
+        id: cleanId,
+        displayName: rawName,
+        avatar: selectedAvatar,
+        pin: pinInput,
+        score: 0,
+        gamesPlayed: 0,
+        bestStreak: 0,
+        createdAt: serverTimestamp()
+      };
+
+      await setDoc(userRef, newUserDoc);
+
+      const loggedUser = {
+        id: cleanId,
+        displayName: rawName,
+        avatar: selectedAvatar,
+        score: 0,
+        gamesPlayed: 0,
+        bestStreak: 0
+      };
+
+      setUser(loggedUser);
+      localStorage.setItem('reverse_trivia_user', JSON.stringify(loggedUser));
+      setLocalPlayers([
+        { name: loggedUser.displayName, avatar: loggedUser.avatar, score: 0 },
+        { name: lang === 'th' ? 'ผู้เล่น 2' : 'Player 2', avatar: '🦊', score: 0 }
+      ]);
     } catch (err) {
-      setAuthError(t(`เชื่อมต่อฐานข้อมูลไม่สำเร็จ: ${err.message}`, `Database error: ${err.message}`));
+      setAuthError(
+        (lang === 'th' ? 'สมัครสมาชิกไม่สำเร็จ: ' : 'Registration failed: ') + err.message
+      );
     } finally {
       setAuthLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('rt_user_session');
-    setUser(null);
-    setRoomId(null);
-    setRoom(null);
-    setSoloState(null);
-    setView('home');
-  };
-
-  // ==========================================
-  // SOLO MODE LOGIC
-  // ==========================================
-
-  const startSoloGame = async () => {
-    setGlobalNotice(null);
-    setSoloBusy(true);
-    const maxRounds = gameMode === 'survival' ? 99 : 5;
-    const lives = gameMode === 'survival' ? 3 : 99;
-    const timeLimit = gameMode === 'blitz' ? 15 : 0;
-
-    setSoloState({
-      mode: gameMode,
-      round: 1,
-      maxRounds,
-      lives,
+  const handleGuestLogin = () => {
+    const guestUser = {
+      id: 'guest_' + Math.floor(1000 + Math.random() * 9000),
+      displayName: lang === 'th' ? 'ผู้เล่นทั่วไป (Guest)' : 'Guest Player',
+      avatar: '👾',
       score: 0,
-      streak: 0,
-      status: 'loading', // 'loading' | 'playing' | 'grading' | 'result' | 'finished'
-      question: null,
-      lastResult: null,
-      history: [],
-      usedQuestions: [],
-      timeLimit,
-    });
-    setView('solo');
-    setSoloAnswer('');
-
-    try {
-      const qData = await generateQuestionAI({ category, difficulty, lang, usedQuestions: [] });
-      setSoloState((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'playing',
-              question: qData,
-              usedQuestions: [qData.question],
-            }
-          : null
-      );
-      if (timeLimit > 0) setSoloTimer(timeLimit);
-    } catch (err) {
-      setGlobalNotice({ type: 'error', text: err.message });
-      setView('home');
-      setSoloState(null);
-    } finally {
-      setSoloBusy(false);
-    }
+      gamesPlayed: 0,
+      bestStreak: 0,
+      isGuest: true
+    };
+    setUser(guestUser);
+    setLocalPlayers([
+      { name: guestUser.displayName, avatar: '👾', score: 0 },
+      { name: lang === 'th' ? 'ผู้เล่น 2' : 'Player 2', avatar: '🦊', score: 0 }
+    ]);
   };
 
-  // Solo Blitz Timer
-  useEffect(() => {
-    if (view !== 'solo' || soloState?.status !== 'playing' || !soloState?.timeLimit) return;
-    if (soloTimer <= 0) {
-      submitSoloAnswer(true);
-      return;
-    }
-    const id = setTimeout(() => setSoloTimer((prev) => prev - 1), 1000);
-    return () => clearTimeout(id);
-  }, [view, soloState?.status, soloTimer]);
-
-  const submitSoloAnswer = async (isTimeout = false) => {
-    if (!soloState || soloState.status !== 'playing' || soloBusy) return;
-    const ans = isTimeout ? '' : soloAnswer.trim();
-    const bannedList = soloState.question?.defaultBans || [];
-
-    setSoloBusy(true);
-    setSoloState((prev) => ({ ...prev, status: 'grading' }));
-
-    try {
-      let resultObj;
-      if (!ans) {
-        resultObj = {
-          answer: t('(หมดเวลา/ไม่ได้ตอบ)', '(Timed out)'),
-          status: 'timeout',
-          points: 0,
-          rarity: 0,
-          reason: t('หมดเวลาก่อนส่งคำตอบ!', 'Time ran out before submitting!'),
-        };
-      } else {
-        const normAns = normalizeText(ans);
-        const hitBan = bannedList.find((b) => normalizeText(b) === normAns);
-        if (hitBan) {
-          resultObj = {
-            answer: ans,
-            status: 'banned',
-            points: 0,
-            rarity: 0,
-            reason: t(`โดนคำต้องห้าม "${hitBan}"! คิดให้ลึกกว่านี้อีกนิด`, `Hit banned word "${hitBan}"!`),
-          };
-        } else {
-          const graded = await gradeAnswersBatchAI({
-            question: soloState.question.question,
-            answers: [{ id: 'solo', text: ans }],
-            lang,
-          });
-          const g = graded?.solo || { isValid: false, rarity: 0, reason: t('ตรวจคำตอบไม่สำเร็จ', 'Could not grade') };
-          const pts = g.isValid ? Math.max(10, Math.min(100, Number(g.rarity) || 50)) : 0;
-          resultObj = {
-            answer: ans,
-            status: g.isValid ? 'valid' : 'invalid',
-            points: pts,
-            rarity: pts,
-            reason: g.reason || '',
-          };
-        }
-      }
-
-      const isGood = resultObj.status === 'valid';
-      const newLives = isGood ? soloState.lives : soloState.lives - 1;
-      const newScore = soloState.score + resultObj.points;
-      const newStreak = isGood ? soloState.streak + 1 : 0;
-
-      setSoloState((prev) => ({
-        ...prev,
-        status: 'result',
-        score: newScore,
-        lives: newLives,
-        streak: newStreak,
-        lastResult: resultObj,
-        history: [...prev.history, { question: prev.question.question, ...resultObj }],
-      }));
-    } catch (err) {
-      setGlobalNotice({ type: 'error', text: err.message });
-      setSoloState((prev) => ({ ...prev, status: 'playing' }));
-    } finally {
-      setSoloBusy(false);
-    }
+  const handleLogout = () => {
+    localStorage.removeItem('reverse_trivia_user');
+    setUser(null);
+    setScreen('lobby');
+    setActiveRoomCode('');
+    setRoomData(null);
+    setPinInput('');
+    setConfirmPinInput('');
+    setAuthError('');
+    setSuggestRegister(false);
   };
 
-  const nextSoloRound = async () => {
-    if (!soloState || soloBusy) return;
-    const isGameOver =
-      (soloState.mode === 'survival' && soloState.lives <= 0) ||
-      (soloState.mode !== 'survival' && soloState.round >= soloState.maxRounds);
-
-    if (isGameOver) {
-      setSoloState((prev) => ({ ...prev, status: 'finished' }));
-      // Save best score to Firestore
-      if (user) {
-        try {
-          const userRef = doc(db, 'users', user.id);
-          const snap = await getDoc(userRef);
-          const currentBest = snap.exists() ? snap.data().bestScore || 0 : 0;
-          const nextBest = Math.max(currentBest, soloState.score);
-          await updateDoc(userRef, {
-            bestScore: nextBest,
-            gamesPlayed: (snap.exists() ? snap.data().gamesPlayed || 0 : 0) + 1,
-          });
-          setUser((u) => {
-            const updated = { ...u, bestScore: nextBest };
-            localStorage.setItem('rt_user_session', JSON.stringify(updated));
-            return updated;
-          });
-        } catch {
-          // ignore
-        }
-      }
-      return;
-    }
-
-    setSoloBusy(true);
-    setSoloAnswer('');
-    setSoloState((prev) => ({ ...prev, round: prev.round + 1, status: 'loading', lastResult: null }));
+  // สร้างชุดคำถาม (พยายามเรียก AI ก่อน หากไม่ได้จะใช้ชุดคำถามสำรองในตัวทันที)
+  const fetchQuestions = async (category, count) => {
+    setLoadingQuestions(true);
     try {
-      const qData = await generateQuestionAI({
-        category,
-        difficulty,
-        lang,
-        usedQuestions: soloState.usedQuestions,
+      const catObj = CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
+      const prompt = `Generate ${count} fun "Reverse Trivia" survey questions in BOTH Thai and English about "${catObj.en}".
+In Reverse Trivia, players try to pick the option that the FEWEST people in a 100-person survey chose.
+Return ONLY a valid JSON array with no markdown or extra text. Format:
+[
+  {
+    "question": { "th": "คำถามภาษาไทย", "en": "English question" },
+    "options": [
+      { "th": "ตัวเลือก 1", "en": "Option 1", "pct": 45 },
+      { "th": "ตัวเลือก 2", "en": "Option 2", "pct": 28 },
+      { "th": "ตัวเลือก 3", "en": "Option 3", "pct": 18 },
+      { "th": "ตัวเลือก 4", "en": "Option 4", "pct": 9 }
+    ]
+  }
+]
+Make sure the 4 "pct" integers sum to exactly 100 and are distinct.`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 9000);
+
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          contents: [{ parts: [{ text: prompt }] }]
+        }),
+        signal: controller.signal
       });
-      setSoloState((prev) => ({
-        ...prev,
-        status: 'playing',
-        question: qData,
-        usedQuestions: [...prev.usedQuestions, qData.question],
-      }));
-      if (soloState.timeLimit > 0) setSoloTimer(soloState.timeLimit);
+      clearTimeout(timeoutId);
+
+      if (!res.ok) throw new Error('API fallback');
+      const data = await res.json();
+      const rawText =
+        data?.text || data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const cleaned = rawText.replace(/```json|```/gi, '').trim();
+      const parsed = JSON.parse(cleaned);
+
+      if (Array.isArray(parsed) && parsed.length >= count) {
+        setQuestionSource('ai');
+        setLoadingQuestions(false);
+        return parsed.slice(0, count);
+      }
+      throw new Error('Invalid format');
     } catch (err) {
-      setGlobalNotice({ type: 'error', text: err.message });
-      setSoloState((prev) => ({ ...prev, status: 'finished' }));
-    } finally {
-      setSoloBusy(false);
+      // ใช้ชุดคำถามสำรองแบบสุ่มไม่ซ้ำ
+      const pool =
+        category === 'all'
+          ? [...FALLBACK_QUESTIONS]
+          : FALLBACK_QUESTIONS.filter((q) => q.category === category);
+      const sourcePool = pool.length >= count ? pool : [...FALLBACK_QUESTIONS];
+      const shuffled = sourcePool.sort(() => Math.random() - 0.5);
+      setQuestionSource('classic');
+      setLoadingQuestions(false);
+      return shuffled.slice(0, count);
     }
   };
 
-  // ==========================================
-  // MULTIPLAYER: CREATE / JOIN / LEAVE / BAN
-  // ==========================================
-
-  const clearRoomUrlParam = () => {
+  // อัปเดตสถิติผู้เล่นลง Firestore
+  const savePlayerProgress = async (earnedScore, newBestStreak) => {
+    if (!user || user.isGuest) return;
     try {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('room');
-      window.history.replaceState({}, '', url.toString());
-    } catch {
-      // ignore
+      const userRef = doc(db, 'users', user.id);
+      const updatedBest = Math.max(user.bestStreak || 0, newBestStreak || 0);
+      await updateDoc(userRef, {
+        score: increment(earnedScore),
+        gamesPlayed: increment(1),
+        bestStreak: updatedBest
+      });
+      const updatedUser = {
+        ...user,
+        score: (user.score || 0) + earnedScore,
+        gamesPlayed: (user.gamesPlayed || 0) + 1,
+        bestStreak: updatedBest
+      };
+      setUser(updatedUser);
+      localStorage.setItem('reverse_trivia_user', JSON.stringify(updatedUser));
+    } catch (e) {
+      // ข้ามหากออฟไลน์ชั่วคราว
     }
   };
 
-  const handleCreateRoom = async () => {
-    if (!user || mpActionBusy) return;
-    setGlobalNotice(null);
-    setMpActionBusy(true);
+  // --- โหมดเล่นคนเดียว (Solo) ---
+  const startSoloGame = async () => {
+    const qs = await fetchQuestions(selectedCategory, totalRounds);
+    setQuestions(qs);
+    setSoloRound(0);
+    setSoloScore(0);
+    setSoloStreak(0);
+    setSoloBestStreak(0);
+    setSoloPicked(null);
+    setSoloFinished(false);
+    setScreen('solo');
+  };
+
+  const handleSoloPick = (idx) => {
+    if (soloPicked !== null) return;
+    setSoloPicked(idx);
+    const currentQ = questions[soloRound];
+    const { points, isReverseWinner } = calculateRoundPoints(
+      currentQ.options,
+      idx,
+      soloStreak
+    );
+    const nextStreak = isReverseWinner ? soloStreak + 1 : 0;
+    setSoloScore((prev) => prev + points);
+    setSoloStreak(nextStreak);
+    setSoloBestStreak((prev) => Math.max(prev, nextStreak));
+  };
+
+  const handleSoloNext = async () => {
+    if (soloRound + 1 < questions.length) {
+      setSoloRound((prev) => prev + 1);
+      setSoloPicked(null);
+    } else {
+      setSoloFinished(true);
+      await savePlayerProgress(soloScore, soloBestStreak);
+    }
+  };
+
+  // --- โหมดผู้เล่นหลายคนในเครื่องเดียว (Local Pass & Play) ---
+  const addLocalPlayer = () => {
+    if (localPlayers.length >= 8) return;
+    const nextNum = localPlayers.length + 1;
+    const nextAvatar = AVATARS[(nextNum - 1) % AVATARS.length];
+    setLocalPlayers([
+      ...localPlayers,
+      {
+        name: lang === 'th' ? `ผู้เล่น ${nextNum}` : `Player ${nextNum}`,
+        avatar: nextAvatar,
+        score: 0
+      }
+    ]);
+  };
+
+  const removeLocalPlayer = (index) => {
+    if (localPlayers.length <= 2) return;
+    setLocalPlayers(localPlayers.filter((_, i) => i !== index));
+  };
+
+  const updateLocalPlayerName = (index, name) => {
+    const copy = [...localPlayers];
+    copy[index] = { ...copy[index], name };
+    setLocalPlayers(copy);
+  };
+
+  const cycleLocalPlayerAvatar = (index) => {
+    const copy = [...localPlayers];
+    const currIdx = AVATARS.indexOf(copy[index].avatar);
+    copy[index] = {
+      ...copy[index],
+      avatar: AVATARS[(currIdx + 1) % AVATARS.length]
+    };
+    setLocalPlayers(copy);
+  };
+
+  const startLocalGame = async () => {
+    const cleanedPlayers = localPlayers.map((p, idx) => ({
+      ...p,
+      name:
+        p.name.trim() ||
+        (lang === 'th' ? `ผู้เล่น ${idx + 1}` : `Player ${idx + 1}`),
+      score: 0
+    }));
+    setLocalPlayers(cleanedPlayers);
+    const qs = await fetchQuestions(selectedCategory, totalRounds);
+    setQuestions(qs);
+    setLocalRound(0);
+    setLocalTurnIndex(0);
+    setLocalPrivacyScreen(true);
+    setLocalAnswers({});
+    setLocalReveal(false);
+    setLocalFinished(false);
+    setScreen('local_game');
+  };
+
+  const handleLocalSecretPick = (optionIdx) => {
+    const updatedAnswers = { ...localAnswers, [localTurnIndex]: optionIdx };
+    setLocalAnswers(updatedAnswers);
+
+    if (localTurnIndex + 1 < localPlayers.length) {
+      setLocalTurnIndex(localTurnIndex + 1);
+      setLocalPrivacyScreen(true);
+    } else {
+      // ครบทุกคนแล้ว คำนวณคะแนนรอบนี้และเปิดเฉลยพร้อมกัน
+      const currentQ = questions[localRound];
+      const scoredPlayers = localPlayers.map((p, idx) => {
+        const picked = updatedAnswers[idx];
+        const { points } = calculateRoundPoints(currentQ.options, picked, 0);
+        return {
+          ...p,
+          lastRoundPoints: points,
+          score: p.score + points
+        };
+      });
+      setLocalPlayers(scoredPlayers);
+      setLocalReveal(true);
+    }
+  };
+
+  const handleLocalNextRound = async () => {
+    if (localRound + 1 < questions.length) {
+      setLocalRound(localRound + 1);
+      setLocalTurnIndex(0);
+      setLocalPrivacyScreen(true);
+      setLocalAnswers({});
+      setLocalReveal(false);
+    } else {
+      setLocalFinished(true);
+      if (localPlayers[0]?.score > 0) {
+        await savePlayerProgress(localPlayers[0].score, 0);
+      }
+    }
+  };
+
+  // --- โหมดห้องออนไลน์หลายคน (Online Room) ---
+  const createOnlineRoom = async () => {
+    setOnlineError('');
+    setOnlineLoading(true);
     try {
-      const code = generateRoomCode();
-      const roomRef = doc(db, 'rooms', code);
-      const initialRoom = {
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const qs = await fetchQuestions(selectedCategory, totalRounds);
+      const roomDoc = {
         code,
         hostId: user.id,
-        status: 'lobby', // 'lobby' | 'generating' | 'banning' | 'answering' | 'grading' | 'results' | 'finished'
-        category,
-        difficulty,
-        totalRounds: 5,
-        answerTime: 30,
-        banTime: 20,
-        enableBanPhase: true,
-        round: 0,
-        phaseEndsAt: 0,
-        question: null,
-        usedQuestions: [],
-        bannedWords: [],
+        status: 'waiting', // 'waiting' | 'playing' | 'reveal' | 'finished'
+        currentRound: 0,
+        questions: qs,
         players: {
           [user.id]: {
             id: user.id,
-            name: user.displayName || user.id,
+            displayName: user.displayName,
+            avatar: user.avatar || '😎',
             score: 0,
-            ready: true,
-            joinedAt: Date.now(),
-          },
+            currentPick: null
+          }
         },
-        bannedIds: [],
-        bans: {},
-        submissions: {},
-        roundResults: null,
-        createdAt: Date.now(),
+        createdAt: serverTimestamp()
       };
-      await setDoc(roomRef, initialRoom);
-      phaseLockRef.current = '';
-      setRoomId(code);
-      setView('multi');
+      await setDoc(doc(db, 'rooms', code), roomDoc);
+      setActiveRoomCode(code);
+      setScreen('online_lobby');
     } catch (err) {
-      setGlobalNotice({ type: 'error', text: t(`สร้างห้องไม่สำเร็จ: ${err.message}`, `Failed to create room: ${err.message}`) });
+      setOnlineError(
+        (lang === 'th' ? 'สร้างห้องไม่สำเร็จ: ' : 'Failed to create room: ') + err.message
+      );
     } finally {
-      setMpActionBusy(false);
+      setOnlineLoading(false);
     }
   };
 
-  const handleJoinRoom = async (rawCode) => {
-    const code = String(rawCode || joinCodeInput || '').trim().toUpperCase();
-    if (!user || !code) {
-      setGlobalNotice({ type: 'error', text: t('กรุณากรอกรหัสห้อง 6 หลัก', 'Please enter a 6-character room code.') });
+  const joinOnlineRoom = async () => {
+    setOnlineError('');
+    const code = roomCodeInput.trim().toUpperCase();
+    if (code.length < 4) {
+      setOnlineError(
+        lang === 'th' ? 'กรุณากรอกรหัสห้องให้ถูกต้อง' : 'Please enter a valid room code'
+      );
       return;
     }
-
-    setGlobalNotice(null);
-    setMpActionBusy(true);
+    setOnlineLoading(true);
     try {
       const roomRef = doc(db, 'rooms', code);
       const snap = await getDoc(roomRef);
-
       if (!snap.exists()) {
-        clearRoomUrlParam();
-        setGlobalNotice({ type: 'error', text: t(`ไม่พบห้องรหัส "${code}"`, `Room "${code}" not found.`) });
-        setMpActionBusy(false);
+        setOnlineError(
+          lang === 'th' ? `ไม่พบห้องรหัส "${code}"` : `Room "${code}" not found`
+        );
+        setOnlineLoading(false);
         return;
       }
-
-      const data = snap.data();
-      if (Array.isArray(data.bannedIds) && data.bannedIds.includes(user.id)) {
-        clearRoomUrlParam();
-        setGlobalNotice({
-          type: 'error',
-          text: t('คุณถูกแบนจากห้องนี้ ไม่สามารถเข้าร่วมได้จนกว่าหัวห้องจะปลดแบน', 'You are banned from this room.'),
-        });
-        setMpActionBusy(false);
-        return;
-      }
-
-      if (!data.players?.[user.id]) {
-        await updateDoc(roomRef, {
-          [`players.${user.id}`]: {
-            id: user.id,
-            name: user.displayName || user.id,
-            score: 0,
-            ready: false,
-            joinedAt: Date.now(),
-          },
-        });
-      }
-
-      phaseLockRef.current = '';
-      setRoomId(code);
-      setView('multi');
+      await updateDoc(roomRef, {
+        [`players.${user.id}`]: {
+          id: user.id,
+          displayName: user.displayName,
+          avatar: user.avatar || '😎',
+          score: 0,
+          currentPick: null
+        }
+      });
+      setActiveRoomCode(code);
+      setScreen('online_lobby');
     } catch (err) {
-      setGlobalNotice({ type: 'error', text: t(`เข้าห้องไม่สำเร็จ: ${err.message}`, `Failed to join room: ${err.message}`) });
+      setOnlineError(
+        (lang === 'th' ? 'เข้าห้องไม่สำเร็จ: ' : 'Failed to join room: ') + err.message
+      );
     } finally {
-      setMpActionBusy(false);
+      setOnlineLoading(false);
     }
   };
 
-  const handleLeaveRoom = async () => {
-    if (!roomId || !user) {
-      setRoomId(null);
-      setRoom(null);
-      setView('home');
-      return;
-    }
-
-    const currentRoom = room;
-    const currentId = roomId;
-    setRoomId(null);
-    setRoom(null);
-    setView('home');
-    clearRoomUrlParam();
-
-    try {
-      const roomRef = doc(db, 'rooms', currentId);
-      const updates = {
-        [`players.${user.id}`]: deleteField(),
-        [`submissions.${user.id}`]: deleteField(),
-        [`bans.${user.id}`]: deleteField(),
-      };
-      // Transfer host if leaving player was host
-      if (currentRoom?.hostId === user.id && currentRoom?.players) {
-        const others = Object.keys(currentRoom.players).filter((pid) => pid !== user.id);
-        if (others.length > 0) {
-          updates.hostId = others[0];
-        }
-      }
-      await updateDoc(roomRef, updates);
-    } catch {
-      // ignore cleanup errors
-    }
-  };
-
-  // Atomic Kick & Ban (clears player from players, bans, and submissions so rounds NEVER hang)
-  const handleKickPlayer = async (targetId) => {
-    if (!roomId || !room || room.hostId !== user?.id || targetId === user.id) return;
-    try {
-      await updateDoc(doc(db, 'rooms', roomId), {
-        [`players.${targetId}`]: deleteField(),
-        [`submissions.${targetId}`]: deleteField(),
-        [`bans.${targetId}`]: deleteField(),
-      });
-    } catch (err) {
-      setGlobalNotice({ type: 'error', text: err.message });
-    }
-  };
-
-  const handleBanPlayer = async (targetId) => {
-    if (!roomId || !room || room.hostId !== user?.id || targetId === user.id) return;
-    try {
-      await updateDoc(doc(db, 'rooms', roomId), {
-        bannedIds: arrayUnion(targetId),
-        [`players.${targetId}`]: deleteField(),
-        [`submissions.${targetId}`]: deleteField(),
-        [`bans.${targetId}`]: deleteField(),
-      });
-    } catch (err) {
-      setGlobalNotice({ type: 'error', text: err.message });
-    }
-  };
-
-  const handleUnbanPlayer = async (targetId) => {
-    if (!roomId || !room || room.hostId !== user?.id) return;
-    try {
-      await updateDoc(doc(db, 'rooms', roomId), {
-        bannedIds: arrayRemove(targetId),
-      });
-    } catch (err) {
-      setGlobalNotice({ type: 'error', text: err.message });
-    }
-  };
-
-  const handleToggleReady = async () => {
-    if (!roomId || !room || !user) return;
-    const current = Boolean(room.players?.[user.id]?.ready);
-    try {
-      await updateDoc(doc(db, 'rooms', roomId), {
-        [`players.${user.id}.ready`]: !current,
-      });
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleUpdateRoomSetting = async (patch) => {
-    if (!roomId || !room || room.hostId !== user?.id) return;
-    try {
-      await updateDoc(doc(db, 'rooms', roomId), patch);
-    } catch {
-      // ignore
-    }
-  };
-
-  // ==========================================
-  // MULTIPLAYER REALTIME LISTENER & BAN DETECTION
-  // ==========================================
-
-  useEffect(() => {
-    if (!roomId || !user) return;
-    const roomRef = doc(db, 'rooms', roomId);
-
-    const unsub = onSnapshot(
-      roomRef,
-      (snap) => {
-        if (!snap.exists()) {
-          setRoomId(null);
-          setRoom(null);
-          setView('home');
-          clearRoomUrlParam();
-          setGlobalNotice({ type: 'error', text: t('ห้องนี้ถูกปิดไปแล้ว', 'This room no longer exists.') });
-          return;
-        }
-
-        const data = snap.data();
-
-        // Immediate clean exit if banned
-        if (Array.isArray(data.bannedIds) && data.bannedIds.includes(user.id)) {
-          setRoomId(null);
-          setRoom(null);
-          setView('home');
-          clearRoomUrlParam();
-          setGlobalNotice({
-            type: 'error',
-            text: t('คุณถูกแบนออกจากห้องนี้โดยหัวห้อง', 'You were banned from this room by the host.'),
-          });
-          return;
-        }
-
-        // Immediate clean exit if kicked
-        if (!data.players || !data.players[user.id]) {
-          setRoomId(null);
-          setRoom(null);
-          setView('home');
-          clearRoomUrlParam();
-          setGlobalNotice({
-            type: 'info',
-            text: t('คุณถูกเชิญออกจากห้องนี้', 'You were removed from the room.'),
-          });
-          return;
-        }
-
-        setRoom(data);
-      },
-      (err) => {
-        setGlobalNotice({ type: 'error', text: err.message });
-      }
-    );
-
-    return () => unsub();
-  }, [roomId, user]);
-
-  // Clear local inputs when round or status changes
-  useEffect(() => {
-    setMpAnswer('');
-    setMpBanInput('');
-    setHostGradingError('');
-  }, [room?.round, room?.status]);
-
-  // Live countdown ticker synced to room.phaseEndsAt
-  useEffect(() => {
-    if (!room || (room.status !== 'banning' && room.status !== 'answering')) {
-      setMpTimeLeft(0);
-      return;
-    }
-
-    const updateTick = () => {
-      const remaining = Math.max(0, Math.ceil(((room.phaseEndsAt || 0) - Date.now()) / 1000));
-      setMpTimeLeft(remaining);
-    };
-
-    updateTick();
-    const timer = setInterval(updateTick, 500);
-    return () => clearInterval(timer);
-  }, [room?.status, room?.phaseEndsAt]);
-
-  // ==========================================
-  // MULTIPLAYER HOST STATE MACHINE (ZERO HANG)
-  // ==========================================
-
-  const isHost = Boolean(room && user && room.hostId === user.id);
-  const activePlayerIds = room?.players ? Object.keys(room.players) : [];
-
-  // Host starts a new round (generates question -> enters banning OR answering)
-  const hostStartRound = async (nextRoundNumber, resetScores = false) => {
-    if (!roomId || !room || !isHost) return;
-    const lockKey = `gen-${nextRoundNumber}-${resetScores ? 'reset' : 'next'}`;
-    if (phaseLockRef.current === lockKey) return;
-    phaseLockRef.current = lockKey;
-
-    setHostGradingError('');
-    const roomRef = doc(db, 'rooms', roomId);
-
-    try {
-      const prepUpdates = {
-        status: 'generating',
-        round: nextRoundNumber,
-        bans: {},
-        submissions: {},
-        roundResults: null,
-        bannedWords: [],
-      };
-      if (resetScores && room.players) {
-        Object.keys(room.players).forEach((pid) => {
-          prepUpdates[`players.${pid}.score`] = 0;
-        });
-        prepUpdates.usedQuestions = [];
-      }
-      await updateDoc(roomRef, prepUpdates);
-
-      const used = resetScores ? [] : room.usedQuestions || [];
-      const qData = await generateQuestionAI({
-        category: room.category || 'general',
-        difficulty: room.difficulty || 'medium',
-        lang,
-        usedQuestions: used,
-      });
-
-      if (room.enableBanPhase) {
-        await updateDoc(roomRef, {
-          status: 'banning',
-          question: qData,
-          usedQuestions: [...used, qData.question],
-          bannedWords: qData.defaultBans || [],
-          phaseEndsAt: Date.now() + (room.banTime || 20) * 1000,
-        });
-      } else {
-        await updateDoc(roomRef, {
-          status: 'answering',
-          question: qData,
-          usedQuestions: [...used, qData.question],
-          bannedWords: qData.defaultBans || [],
-          phaseEndsAt: Date.now() + (room.answerTime || 30) * 1000,
-        });
-      }
-    } catch (err) {
-      phaseLockRef.current = '';
-      setHostGradingError(err.message);
-      await updateDoc(roomRef, { status: 'lobby' }).catch(() => {});
-    }
-  };
-
-  // Transition: Banning -> Answering
-  const hostAdvanceToAnswering = async () => {
-    if (!roomId || !room || !isHost || room.status !== 'banning') return;
-    const lockKey = `ban-to-ans-${room.round}`;
-    if (phaseLockRef.current === lockKey) return;
-    phaseLockRef.current = lockKey;
-
-    try {
-      const defaultBans = room.question?.defaultBans || [];
-      const playerBans = Object.values(room.bans || {})
-        .map((b) => String(b?.word || '').trim())
-        .filter(Boolean);
-
-      // Deduplicate case-insensitively
-      const seen = new Set();
-      const mergedBans = [];
-      [...defaultBans, ...playerBans].forEach((word) => {
-        const key = normalizeText(word);
-        if (key && !seen.has(key)) {
-          seen.add(key);
-          mergedBans.push(word);
-        }
-      });
-
-      await updateDoc(doc(db, 'rooms', roomId), {
-        status: 'answering',
-        bannedWords: mergedBans,
-        phaseEndsAt: Date.now() + (room.answerTime || 30) * 1000,
-      });
-    } catch (err) {
-      phaseLockRef.current = '';
-      setHostGradingError(err.message);
-    }
-  };
-
-  // Transition: Answering -> Grading -> Results
-  const hostGradeRound = async (forceRetry = false) => {
-    if (!roomId || !room || !isHost) return;
-    if (!forceRetry && room.status !== 'answering') return;
-
-    const lockKey = `grade-${room.round}`;
-    if (!forceRetry && phaseLockRef.current === lockKey) return;
-    phaseLockRef.current = lockKey;
-    setHostGradingError('');
-
-    const roomRef = doc(db, 'rooms', roomId);
-    try {
-      await updateDoc(roomRef, { status: 'grading' });
-
-      const activeIds = Object.keys(room.players || {});
-      const subs = room.submissions || {};
-      const bannedSet = new Set((room.bannedWords || []).map(normalizeText).filter(Boolean));
-
-      // Count duplicates across active players
-      const freq = {};
-      activeIds.forEach((pid) => {
-        const norm = normalizeText(subs[pid]?.text || '');
-        if (norm) {
-          freq[norm] = (freq[norm] || 0) + 1;
-        }
-      });
-
-      const finalResults = {};
-      const toGradeByAI = [];
-
-      activeIds.forEach((pid) => {
-        const rawText = String(subs[pid]?.text || '').trim();
-        const norm = normalizeText(rawText);
-
-        if (!norm) {
-          finalResults[pid] = {
-            answer: t('(ไม่ได้ตอบ)', '(No answer)'),
-            status: 'timeout',
-            points: 0,
-            rarity: 0,
-            reason: t('ส่งคำตอบไม่ทันเวลา', 'Did not submit in time.'),
-          };
-        } else if (bannedSet.has(norm)) {
-          finalResults[pid] = {
-            answer: rawText,
-            status: 'banned',
-            points: 0,
-            rarity: 0,
-            reason: t('โดนคำต้องห้าม! อดคะแนนรอบนี้', 'Hit a banned word! 0 pts.'),
-          };
-        } else if (freq[norm] > 1) {
-          finalResults[pid] = {
-            answer: rawText,
-            status: 'duplicate',
-            points: 0,
-            rarity: 0,
-            reason: t('ใจตรงกัน! ตอบซ้ำกับเพื่อน ตัดคะแนนคู่', 'Duplicate answer! Cancelled out.'),
-          };
-        } else {
-          toGradeByAI.push({ id: pid, text: rawText });
-        }
-      });
-
-      // Only call AI if there are unique non-banned answers
-      if (toGradeByAI.length > 0) {
-        const aiMap = await gradeAnswersBatchAI({
-          question: room.question?.question || '',
-          answers: toGradeByAI,
-          lang,
-        });
-
-        toGradeByAI.forEach(({ id, text }) => {
-          const g = aiMap?.[id];
-          if (g && g.isValid) {
-            const pts = Math.max(10, Math.min(100, Number(g.rarity) || 50));
-            finalResults[id] = {
-              answer: text,
-              status: 'valid',
-              points: pts,
-              rarity: pts,
-              reason: g.reason || t('คำตอบถูกต้อง!', 'Valid answer!'),
-            };
-          } else {
-            finalResults[id] = {
-              answer: text,
-              status: 'invalid',
-              points: 0,
-              rarity: 0,
-              reason: g?.reason || t('คำตอบยังไม่ตรงเงื่อนไขคำถาม', 'Answer does not match the question.'),
-            };
-          }
-        });
-      }
-
-      // Compute updated scores
-      const updates = {
-        status: 'results',
-        roundResults: finalResults,
-      };
-      activeIds.forEach((pid) => {
-        const oldScore = Number(room.players?.[pid]?.score || 0);
-        const earned = Number(finalResults[pid]?.points || 0);
-        updates[`players.${pid}.score`] = oldScore + earned;
-      });
-
-      await updateDoc(roomRef, updates);
-    } catch (err) {
-      phaseLockRef.current = '';
-      setHostGradingError(err.message);
-    }
-  };
-
-  // Auto-advance Effect for Host (Banning -> Answering, Answering -> Grading)
-  useEffect(() => {
-    if (!isHost || !room || activePlayerIds.length === 0) return;
-
-    if (room.status === 'banning') {
-      const bansMap = room.bans || {};
-      const allDoneBanning = activePlayerIds.every((pid) => Boolean(bansMap[pid]));
-      const timeExpired = room.phaseEndsAt > 0 && Date.now() >= room.phaseEndsAt;
-      if (allDoneBanning || timeExpired) {
-        hostAdvanceToAnswering();
-      }
-    } else if (room.status === 'answering') {
-      const subsMap = room.submissions || {};
-      const allSubmitted = activePlayerIds.every((pid) => Boolean(subsMap[pid]));
-      const timeExpired = room.phaseEndsAt > 0 && Date.now() >= room.phaseEndsAt;
-      if (allSubmitted || timeExpired) {
-        hostGradeRound(false);
-      }
-    }
-  }, [isHost, room, mpTimeLeft]);
-
-  // Player actions during Banning & Answering
-  const handleSubmitBan = async (skip = false) => {
-    if (!roomId || !room || !user || room.status !== 'banning') return;
-    if (room.bans?.[user.id]) return;
-
-    const word = skip ? '' : mpBanInput.trim();
-    if (!skip && !word) return;
-
-    try {
-      await updateDoc(doc(db, 'rooms', roomId), {
-        [`bans.${user.id}`]: {
-          word,
-          skipped: skip,
-          submittedAt: Date.now(),
-        },
-      });
-    } catch (err) {
-      setGlobalNotice({ type: 'error', text: err.message });
-    }
-  };
-
-  const handleSubmitMpAnswer = async (e) => {
-    e?.preventDefault();
-    if (!roomId || !room || !user || room.status !== 'answering') return;
-    if (room.submissions?.[user.id]) return;
-
-    const text = mpAnswer.trim();
-    if (!text) return;
-
-    try {
-      await updateDoc(doc(db, 'rooms', roomId), {
-        [`submissions.${user.id}`]: {
-          text,
-          submittedAt: Date.now(),
-        },
-      });
-    } catch (err) {
-      setGlobalNotice({ type: 'error', text: err.message });
-    }
-  };
-
-  const hostNextStepFromResults = async () => {
-    if (!roomId || !room || !isHost) return;
-    if (room.round >= (room.totalRounds || 5)) {
-      await updateDoc(doc(db, 'rooms', roomId), { status: 'finished' });
-    } else {
-      await hostStartRound(room.round + 1, false);
-    }
-  };
-
-  const hostBackToLobby = async () => {
-    if (!roomId || !room || !isHost) return;
-    phaseLockRef.current = '';
-    await updateDoc(doc(db, 'rooms', roomId), {
-      status: 'lobby',
-      round: 0,
-      question: null,
-      bans: {},
-      submissions: {},
-      roundResults: null,
-      bannedWords: [],
+  const startOnlineMatch = async () => {
+    if (!activeRoomCode) return;
+    await updateDoc(doc(db, 'rooms', activeRoomCode), {
+      status: 'playing',
+      currentRound: 0
     });
   };
 
-  // Invite URL & QR code
-  const inviteUrl =
-    typeof window !== 'undefined' && roomId
-      ? `${window.location.origin}${window.location.pathname}?room=${roomId}`
-      : '';
+  const submitOnlinePick = async (optionIdx) => {
+    if (!roomData || !activeRoomCode) return;
+    const me = roomData.players?.[user.id];
+    if (!me || me.currentPick !== null) return;
 
-  const qrImageUrl = inviteUrl
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(inviteUrl)}`
-    : '';
+    const updatedPlayers = {
+      ...roomData.players,
+      [user.id]: { ...me, currentPick: optionIdx }
+    };
 
-  const copyInviteLink = async () => {
-    if (!inviteUrl) return;
-    try {
-      await navigator.clipboard.writeText(inviteUrl);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2000);
-    } catch {
-      setGlobalNotice({ type: 'info', text: inviteUrl });
+    const allPlayersList = Object.values(updatedPlayers);
+    const everyonePicked = allPlayersList.every((p) => p.currentPick !== null);
+
+    if (everyonePicked) {
+      const currentQ = roomData.questions[roomData.currentRound];
+      const scoredPlayers = {};
+      allPlayersList.forEach((p) => {
+        const { points } = calculateRoundPoints(currentQ.options, p.currentPick, 0);
+        scoredPlayers[p.id] = {
+          ...p,
+          lastPoints: points,
+          score: (p.score || 0) + points
+        };
+      });
+      await updateDoc(doc(db, 'rooms', activeRoomCode), {
+        players: scoredPlayers,
+        status: 'reveal'
+      });
+    } else {
+      await updateDoc(doc(db, 'rooms', activeRoomCode), {
+        [`players.${user.id}.currentPick`]: optionIdx
+      });
     }
   };
 
-  // ==========================================
-  // RENDER: LOGIN SCREEN
-  // ==========================================
+  const forceRevealOnline = async () => {
+    if (!roomData || !activeRoomCode) return;
+    const currentQ = roomData.questions[roomData.currentRound];
+    const scoredPlayers = {};
+    Object.values(roomData.players || {}).forEach((p) => {
+      if (p.currentPick !== null) {
+        const { points } = calculateRoundPoints(currentQ.options, p.currentPick, 0);
+        scoredPlayers[p.id] = {
+          ...p,
+          lastPoints: points,
+          score: (p.score || 0) + points
+        };
+      } else {
+        scoredPlayers[p.id] = { ...p, lastPoints: 0 };
+      }
+    });
+    await updateDoc(doc(db, 'rooms', activeRoomCode), {
+      players: scoredPlayers,
+      status: 'reveal'
+    });
+  };
 
+  const nextOnlineRound = async () => {
+    if (!roomData || !activeRoomCode) return;
+    const nextIdx = roomData.currentRound + 1;
+    if (nextIdx < roomData.questions.length) {
+      const resetPlayers = {};
+      Object.values(roomData.players || {}).forEach((p) => {
+        resetPlayers[p.id] = { ...p, currentPick: null, lastPoints: 0 };
+      });
+      await updateDoc(doc(db, 'rooms', activeRoomCode), {
+        players: resetPlayers,
+        currentRound: nextIdx,
+        status: 'playing'
+      });
+    } else {
+      await updateDoc(doc(db, 'rooms', activeRoomCode), {
+        status: 'finished'
+      });
+      const myFinal = roomData.players?.[user.id]?.score || 0;
+      if (myFinal > 0) {
+        await savePlayerProgress(myFinal, 0);
+      }
+    }
+  };
+
+  const copyRoomInvite = () => {
+    const baseUrl = window.location.origin;
+    const inviteText =
+      lang === 'th'
+        ? `มาเล่น Reverse Trivia ทายสวนกระแสกัน! รหัสห้อง: ${activeRoomCode} หรือกดลิงก์ ${baseUrl}/?room=${activeRoomCode}`
+        : `Join my Reverse Trivia room! Code: ${activeRoomCode} Link: ${baseUrl}/?room=${activeRoomCode}`;
+    navigator.clipboard.writeText(inviteText);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
+  };
+
+  // =========================================================================
+  // 1. หน้าเข้าสู่ระบบ & สมัคร ID ใหม่ (AUTH SCREEN)
+  // =========================================================================
   if (!user) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+      <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-md bg-[#0f1626] border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          {/* Header */}
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
-                <Sparkles className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <Sparkles className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="font-black text-xl tracking-tight">Reverse Trivia</h1>
-                <p className="text-xs text-indigo-400 font-medium">ทายสวนกระแส</p>
+                <h1 className="text-xl font-bold tracking-tight text-white">
+                  Reverse Trivia
+                </h1>
+                <p className="text-xs text-indigo-400 font-medium">
+                  {lang === 'th' ? 'ทายสวนกระแส' : 'Think Against the Crowd'}
+                </p>
               </div>
             </div>
+
             <button
-              onClick={() => setLang((l) => (l === 'th' ? 'en' : 'th'))}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5"
+              type="button"
+              onClick={() => setLang(lang === 'th' ? 'en' : 'th')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition"
             >
               <Globe className="w-3.5 h-3.5 text-indigo-400" />
-              {lang.toUpperCase()}
+              {lang === 'th' ? 'TH' : 'EN'}
             </button>
           </div>
 
-          {pendingRoomCode && (
-            <div className="mb-5 p-3.5 rounded-2xl bg-indigo-500/15 border border-indigo-500/40 text-sm text-indigo-200 flex items-center gap-2.5">
-              <Users className="w-5 h-5 text-indigo-400 shrink-0" />
-              <span>
-                {t(
-                  `คุณได้รับคำเชิญเข้าห้อง ${pendingRoomCode} — กรอกชื่อและ PIN เพื่อเข้าห้องทันที`,
-                  `Invited to Room ${pendingRoomCode} — sign in to join immediately!`
-                )}
-              </span>
-            </div>
-          )}
+          {/* แท็บสลับ เข้าสู่ระบบ / สมัคร ID ใหม่ */}
+          <div className="grid grid-cols-2 gap-2 p-1.5 bg-[#080d18] rounded-2xl border border-slate-800 mb-6">
+            <button
+              type="button"
+              onClick={() => {
+                setAuthTab('login');
+                setAuthError('');
+                setSuggestRegister(false);
+              }}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition ${
+                authTab === 'login'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <LogIn className="w-4 h-4" />
+              {lang === 'th' ? 'เข้าสู่ระบบ' : 'Login'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthTab('register');
+                setAuthError('');
+                setSuggestRegister(false);
+              }}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition ${
+                authTab === 'register'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <UserPlus className="w-4 h-4" />
+              {lang === 'th' ? 'สมัคร ID ใหม่' : 'Register ID'}
+            </button>
+          </div>
 
-          <p className="text-sm text-slate-400 mb-6">
-            {t(
-              'สร้างชื่อผู้เล่น + รหัส PIN 4 หลัก (หรือใส่ของเดิมเพื่อเข้าสู่ระบบ)',
-              'Create a Player ID + 4-digit PIN (or sign in with an existing one).'
-            )}
-          </p>
-
+          {/* กล่องแจ้งเตือน Error */}
           {authError && (
-            <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-sm flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{authError}</span>
+            <div className="mb-5 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs leading-relaxed">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <span>{authError}</span>
+              </div>
+              {suggestRegister && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthTab('register');
+                    setConfirmPinInput(pinInput);
+                    setAuthError('');
+                    setSuggestRegister(false);
+                  }}
+                  className="mt-2.5 w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  {lang === 'th'
+                    ? `สมัครชื่อ "${playerIdInput.trim()}" เป็น ID ใหม่เลย`
+                    : `Register "${playerIdInput.trim()}" Now`}
+                </button>
+              )}
             </div>
           )}
 
-          <form onSubmit={handleAuth} className="space-y-4">
+          {authSuccess && (
+            <div className="mb-5 p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{authSuccess}</span>
+            </div>
+          )}
+
+          {/* ฟอร์ม เข้าสู่ระบบ หรือ สมัคร ID */}
+          <form
+            onSubmit={authTab === 'login' ? handleLogin : handleRegister}
+            className="space-y-4"
+          >
+            {authTab === 'register' && (
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-2">
+                  {lang === 'th' ? 'เลือกรูปโปรไฟล์ของคุณ' : 'Choose Your Avatar'}
+                </label>
+                <div className="grid grid-cols-8 gap-1.5">
+                  {AVATARS.map((av) => (
+                    <button
+                      key={av}
+                      type="button"
+                      onClick={() => setSelectedAvatar(av)}
+                      className={`h-10 rounded-xl text-xl flex items-center justify-center border transition ${
+                        selectedAvatar === av
+                          ? 'bg-emerald-500/20 border-emerald-400 scale-105'
+                          : 'bg-[#080d18] border-slate-800 hover:border-slate-600'
+                      }`}
+                    >
+                      {av}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-                {t('ชื่อผู้เล่น (Player ID)', 'Player ID')}
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                {lang === 'th' ? 'ชื่อผู้เล่น (Player ID)' : 'Player ID'}
               </label>
               <input
                 type="text"
-                value={authId}
-                onChange={(e) => setAuthId(e.target.value)}
-                placeholder={t('เช่น player1 หรือ ชื่อเล่นของคุณ', 'e.g. player1')}
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 focus:border-indigo-500 focus:outline-none text-white"
-                maxLength={24}
+                value={playerIdInput}
+                onChange={(e) => setPlayerIdInput(e.target.value)}
+                placeholder={
+                  lang === 'th' ? 'เช่น somchai99' : 'e.g. player99'
+                }
+                className="w-full px-4 py-3 rounded-xl bg-[#080d18] border border-slate-800 focus:border-indigo-500 focus:outline-none text-white text-sm"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
-                {t('รหัส PIN 4 หลัก', '4-Digit PIN')}
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-slate-400">
+                  {lang === 'th'
+                    ? authTab === 'register'
+                      ? 'ตั้งรหัส PIN ตัวเลข 4 หลัก'
+                      : 'รหัส PIN 4 หลัก'
+                    : '4-Digit PIN'}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1"
+                >
+                  {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {showPin ? (lang === 'th' ? 'ซ่อน' : 'Hide') : (lang === 'th' ? 'แสดง' : 'Show')}
+                </button>
+              </div>
               <input
-                type="password"
+                type={showPin ? 'text' : 'password'}
                 inputMode="numeric"
-                value={authPin}
-                onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                placeholder="••••"
-                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 focus:border-indigo-500 focus:outline-none text-white tracking-widest text-center text-lg"
                 maxLength={4}
+                value={pinInput}
+                onChange={(e) =>
+                  setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))
+                }
+                placeholder="••••"
+                className="w-full px-4 py-3 rounded-xl bg-[#080d18] border border-slate-800 focus:border-indigo-500 focus:outline-none text-white text-center tracking-[0.6em] text-lg font-bold"
                 required
               />
             </div>
+
+            {authTab === 'register' && (
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  {lang === 'th'
+                    ? 'ยืนยันรหัส PIN 4 หลักอีกครั้ง'
+                    : 'Confirm 4-Digit PIN'}
+                </label>
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={confirmPinInput}
+                  onChange={(e) =>
+                    setConfirmPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))
+                  }
+                  placeholder="••••"
+                  className="w-full px-4 py-3 rounded-xl bg-[#080d18] border border-slate-800 focus:border-emerald-500 focus:outline-none text-white text-center tracking-[0.6em] text-lg font-bold"
+                  required
+                />
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={authLoading}
-              className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 font-bold text-white flex items-center justify-center gap-2 transition"
+              className={`w-full py-3.5 rounded-xl font-bold text-sm text-white shadow-lg transition flex items-center justify-center gap-2 ${
+                authTab === 'login'
+                  ? 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-600/25'
+                  : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/25'
+              } disabled:opacity-50`}
             >
               {authLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
+              ) : authTab === 'login' ? (
+                <>
+                  <LogIn className="w-4 h-4" />
+                  {lang === 'th' ? 'เข้าเล่นเกม' : 'Sign In & Play'}
+                </>
               ) : (
                 <>
-                  <LogIn className="w-5 h-5" />
-                  {pendingRoomCode
-                    ? t(`เข้าสู่ระบบและเข้าห้อง ${pendingRoomCode}`, `Sign In & Join ${pendingRoomCode}`)
-                    : t('เข้าเล่นเกม', 'Enter Game')}
+                  <UserPlus className="w-4 h-4" />
+                  {lang === 'th' ? 'ยืนยันสมัคร ID และเข้าเล่น' : 'Create ID & Play'}
                 </>
               )}
             </button>
           </form>
+
+          {/* ปุ่มเข้าเล่นด่วนแบบไม่ต้องสมัคร */}
+          <div className="mt-5 pt-4 border-t border-slate-800/80 text-center">
+            <button
+              type="button"
+              onClick={handleGuestLogin}
+              className="text-xs text-slate-400 hover:text-indigo-300 transition underline underline-offset-4"
+            >
+              {lang === 'th'
+                ? 'เข้าเล่นแบบไม่ใช้ ID (โหมดทดลองเล่น / เล่นกับเพื่อนในเครื่อง)'
+                : 'Continue as Guest (No ID required)'}
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ==========================================
-  // RENDER: HEADER BAR
-  // ==========================================
-
-  const sortedPlayers = room?.players
-    ? Object.values(room.players).sort((a, b) => (b.score || 0) - (a.score || 0))
-    : [];
-
-  const mpPhases = [
-    { key: 'lobby', th: '1. ห้องรอ', en: '1. Lobby' },
-    { key: 'banning', th: '2. แบนคำ', en: '2. Ban' },
-    { key: 'answering', th: '3. ตอบคำถาม', en: '3. Answer' },
-    { key: 'results', th: '4. ผลคะแนน', en: '4. Results' },
-    { key: 'finished', th: '5. สรุป', en: '5. Final' },
-  ];
-
-  const activePhaseIndex =
-    room?.status === 'lobby'
-      ? 0
-      : room?.status === 'generating' || room?.status === 'banning'
-      ? 1
-      : room?.status === 'answering' || room?.status === 'grading'
-      ? 2
-      : room?.status === 'results'
-      ? 3
-      : 4;
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-12">
-      {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-slate-950/90 backdrop-blur border-b border-slate-800">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-          <button
-            onClick={() => {
-              if (view === 'multi' && roomId) {
-                if (window.confirm(t('ต้องการออกจากห้อง Multiplayer ใช่ไหม?', 'Leave Multiplayer room?'))) {
-                  handleLeaveRoom();
-                }
-              } else {
-                setView('home');
-                setSoloState(null);
-              }
-            }}
-            className="flex items-center gap-2.5 text-left"
-          >
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="font-black text-base leading-tight">Reverse Trivia</div>
-              <div className="text-[11px] text-indigo-400 font-semibold">ทายสวนกระแส</div>
-            </div>
-          </button>
-
+  // =========================================================================
+  // แถบด้านบนเมื่อเข้าสู่ระบบแล้ว (TOP NAVBAR)
+  // =========================================================================
+  const TopBar = () => (
+    <div className="w-full max-w-3xl mx-auto flex flex-wrap items-center justify-between gap-3 mb-6 bg-[#0f1626] border border-slate-800/80 rounded-2xl px-4 py-3">
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveRoomCode('');
+            setRoomData(null);
+            setScreen('lobby');
+          }}
+          className="w-10 h-10 rounded-xl bg-slate-800/90 flex items-center justify-center text-xl border border-slate-700"
+        >
+          {user.avatar || '😎'}
+        </button>
+        <div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setLang((l) => (l === 'th' ? 'en' : 'th'))}
-              className="px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold flex items-center gap-1"
-            >
-              <Globe className="w-3.5 h-3.5 text-indigo-400" />
-              {lang.toUpperCase()}
-            </button>
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
-              <span className="font-bold text-white">{user.displayName}</span>
-              <span className="text-amber-400 font-semibold">★ {user.bestScore || 0}</span>
-            </div>
-            <button
-              onClick={handleLogout}
-              title={t('ออกจากระบบ', 'Sign Out')}
-              className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 transition"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <span className="font-bold text-sm text-white">{user.displayName}</span>
+            {!user.isGuest && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                @{user.id}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
+            <span className="flex items-center gap-1 text-amber-400 font-medium">
+              <Trophy className="w-3.5 h-3.5" />
+              {user.score || 0} {lang === 'th' ? 'คะแนน' : 'pts'}
+            </span>
+            <span className="flex items-center gap-1 text-orange-400">
+              <Flame className="w-3.5 h-3.5" />
+              {lang === 'th' ? 'สตรีคสูงสุด:' : 'Best:'} {user.bestStreak || 0}
+            </span>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-5xl mx-auto px-4 pt-6">
-        {/* Global Alert Banner */}
-        {globalNotice && (
-          <div
-            className={`mb-5 p-4 rounded-2xl border flex items-start justify-between gap-3 text-sm ${
-              globalNotice.type === 'error'
-                ? 'bg-rose-500/15 border-rose-500/40 text-rose-200'
-                : 'bg-indigo-500/15 border-indigo-500/40 text-indigo-200'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <AlertTriangle className="w-5 h-5 shrink-0" />
-              <span>{globalNotice.text}</span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setLang(lang === 'th' ? 'en' : 'th')}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700"
+        >
+          <Globe className="w-3.5 h-3.5 text-indigo-400" />
+          {lang === 'th' ? 'TH' : 'EN'}
+        </button>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-semibold border border-rose-500/20 transition"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          {lang === 'th' ? 'ออก' : 'Logout'}
+        </button>
+      </div>
+    </div>
+  );
+
+  // =========================================================================
+  // 2. หน้าหลักเลือกโหมด (MAIN LOBBY)
+  // =========================================================================
+  if (screen === 'lobby') {
+    return (
+      <div className="min-h-screen bg-[#070b14] text-slate-100 p-4 sm:p-6">
+        <TopBar />
+
+        <div className="w-full max-w-3xl mx-auto space-y-6">
+          {/* กติกาเกมแบบกระชับ */}
+          <div className="bg-gradient-to-r from-indigo-950/80 via-purple-950/60 to-slate-900 border border-indigo-500/30 rounded-3xl p-5">
+            <div className="flex items-center gap-2 text-indigo-300 font-bold text-base mb-1">
+              <Sparkles className="w-5 h-5 text-indigo-400" />
+              {lang === 'th'
+                ? 'กติกา: เลือกคำตอบที่คนเลือก "น้อยที่สุด"!'
+                : 'Rule: Pick the answer chosen by the FEWEST people!'}
             </div>
-            <button
-              onClick={() => setGlobalNotice(null)}
-              className="text-xs opacity-70 hover:opacity-100 font-bold px-2"
-            >
-              ✕
-            </button>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              {lang === 'th'
+                ? 'ยิ่งตัวเลือกของคุณมีเปอร์เซ็นต์คนตอบน้อยเท่าไหร่ ยิ่งได้คะแนนเยอะ (สวนกระแสอันดับ 1 รับ +150 คะแนน) แต่ถ้าไปตรงกับคำตอบยอดฮิตที่คนเลือกเยอะสุด จะได้ 0 คะแนน!'
+                : 'The lower the survey percentage of your choice, the more points you score (+150 pts for the #1 least popular answer). Picking the most popular answer gets 0 pts!'}
+            </p>
           </div>
-        )}
 
-        {/* ==========================================
-            VIEW 1: HOME LOBBY (SOLO + MULTIPLAYER)
-           ========================================== */}
-        {view === 'home' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left 2 Columns: Game Setup */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Multiplayer Quick Card */}
-              <div className="bg-gradient-to-br from-indigo-950/80 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-xl">
-                <div className="flex items-center gap-2 mb-1">
-                  <Users className="w-5 h-5 text-indigo-400" />
-                  <h2 className="font-black text-lg">{t('เล่นหลายคนกับเพื่อน (Multiplayer)', 'Play with Friends (Multiplayer)')}</h2>
-                </div>
-                <p className="text-xs text-slate-400 mb-5">
-                  {t(
-                    'สร้างห้องแชร์ลิงก์/QR โค้ด — ใครตอบซ้ำกันอดคะแนน! เปิดโหมดแบนคำต้องห้ามแกล้งเพื่อนได้',
-                    'Create a room with shareable link & QR code. Duplicate answers cancel out!'
-                  )}
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <button
-                    onClick={handleCreateRoom}
-                    disabled={mpActionBusy}
-                    className="py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 font-bold text-white flex items-center justify-center gap-2 transition shadow-lg shadow-indigo-600/20"
-                  >
-                    {mpActionBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
-                    {t('สร้างห้องใหม่', 'Create Room')}
-                  </button>
-
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={joinCodeInput}
-                      onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase().slice(0, 6))}
-                      placeholder={t('กรอกรหัสห้อง 6 หลัก', 'Room Code')}
-                      className="flex-1 min-w-0 px-3.5 py-3 rounded-2xl bg-slate-950 border border-slate-700 focus:border-indigo-500 focus:outline-none text-center font-mono font-bold tracking-widest uppercase"
-                    />
-                    <button
-                      onClick={() => handleJoinRoom(joinCodeInput)}
-                      disabled={mpActionBusy || joinCodeInput.trim().length < 4}
-                      className="px-4 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 font-bold text-white flex items-center gap-1.5 transition shrink-0"
-                    >
-                      <LogIn className="w-4 h-4" />
-                      {t('เข้าห้อง', 'Join')}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Solo Mode Setup */}
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-black text-lg flex items-center gap-2">
-                    <Play className="w-5 h-5 text-emerald-400" />
-                    {t('เล่นคนเดียว (Solo Run)', 'Solo Run')}
-                  </h2>
-                </div>
-
-                {/* Mode cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {SOLO_MODES.map((m) => {
-                    const Icon = m.icon;
-                    return (
-                      <button
-                        key={m.id}
-                        onClick={() => setGameMode(m.id)}
-                        className={`p-4 rounded-2xl border text-left transition ${
-                          gameMode === m.id
-                            ? 'bg-indigo-600/15 border-indigo-500 text-white'
-                            : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
-                        }`}
-                      >
-                        <Icon className={`w-5 h-5 mb-2 ${gameMode === m.id ? 'text-indigo-400' : 'text-slate-400'}`} />
-                        <div className="font-bold text-sm">{lang === 'th' ? m.titleTh : m.titleEn}</div>
-                        <div className="text-xs text-slate-400 mt-1">{lang === 'th' ? m.descTh : m.descEn}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Category & Difficulty */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-2">
-                      {t('หมวดหมู่คำถาม', 'Category')}
-                    </label>
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm focus:border-indigo-500 focus:outline-none"
-                    >
-                      {CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {lang === 'th' ? c.th : c.en}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-400 mb-2">
-                      {t('ระดับความยาก', 'Difficulty')}
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {DIFFICULTIES.map((d) => (
-                        <button
-                          key={d.id}
-                          onClick={() => setDifficulty(d.id)}
-                          className={`py-2.5 rounded-xl text-xs font-bold border transition ${
-                            difficulty === d.id
-                              ? 'bg-indigo-600 border-indigo-500 text-white'
-                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                          }`}
-                        >
-                          {lang === 'th' ? d.th : d.en}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={startSoloGame}
-                  disabled={soloBusy}
-                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-bold text-white flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-600/20"
-                >
-                  {soloBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
-                  {t('เริ่มเกมคนเดียว', 'Start Solo Run')}
-                </button>
-              </div>
+          {/* ตั้งค่าหมวดหมู่และจำนวนข้อ */}
+          <div className="bg-[#0f1626] border border-slate-800 rounded-3xl p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-2">
+                {lang === 'th' ? 'เลือกหมวดคำถาม' : 'Question Category'}
+              </label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#080d18] border border-slate-700 text-sm text-white focus:outline-none focus:border-indigo-500"
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {lang === 'th' ? c.th : c.en}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            {/* Right Column: How to Play + Leaderboard */}
-            <div className="space-y-6">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5">
-                <h3 className="font-bold text-sm text-indigo-300 mb-2 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  {t('กติกา Reverse Trivia', 'How to Play')}
-                </h3>
-                <ul className="text-xs text-slate-400 space-y-2 leading-relaxed">
-                  <li>• {t('ตอบให้ "ถูกต้องตามความจริง" แต่ต้อง "แรร์/ไม่ซ้ำใคร"', 'Give a factually TRUE answer that is as RARE as possible.')}</li>
-                  <li>• {t('ห้ามตอบคำที่อยู่ในรายการ "คำต้องห้าม (Banned)"', 'Never submit a word on the Banned list.')}</li>
-                  <li>• {t('ในโหมด Multiplayer ถ้าตอบซ้ำกับเพื่อน = อดคะแนนทั้งคู่!', 'In Multiplayer, matching another player = 0 pts for both!')}</li>
-                </ul>
-              </div>
-
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5">
-                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-amber-400" />
-                  {t('อันดับคะแนนสูงสุด (Solo)', 'Top Solo Leaderboard')}
-                </h3>
-                {leaderboard.length === 0 ? (
-                  <p className="text-xs text-slate-500">{t('ยังไม่มีสถิติ เริ่มเล่นเลย!', 'No scores yet.')}</p>
-                ) : (
-                  <div className="space-y-2">
-                    {leaderboard.map((p, idx) => (
-                      <div
-                        key={p.id}
-                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs ${
-                          p.id === user.id ? 'bg-indigo-600/20 border border-indigo-500/40' : 'bg-slate-950/60'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="font-black text-slate-500 w-5">#{idx + 1}</span>
-                          <span className="font-semibold truncate">{p.displayName || p.id}</span>
-                        </div>
-                        <span className="font-bold text-amber-400">{p.bestScore || 0}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ==========================================
-            VIEW 2: SOLO RUN SCREEN
-           ========================================== */}
-        {view === 'solo' && soloState && (
-          <div className="max-w-2xl mx-auto space-y-5">
-            {/* Top Stats */}
-            <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-sm">
-              <div className="font-bold">
-                {t('ข้อที่', 'Round')} {soloState.round}
-                {soloState.mode !== 'survival' ? ` / ${soloState.maxRounds}` : ''}
-              </div>
-              {soloState.mode === 'survival' && (
-                <div className="text-rose-400 font-bold">
-                  {'❤️'.repeat(Math.max(0, soloState.lives))}
-                </div>
-              )}
-              {soloState.timeLimit > 0 && soloState.status === 'playing' && (
-                <div className={`font-mono font-bold flex items-center gap-1 ${soloTimer <= 5 ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`}>
-                  <Clock className="w-4 h-4" />
-                  {soloTimer}s
-                </div>
-              )}
-              <div className="font-black text-indigo-400">
-                {soloState.score} {t('คะแนน', 'pts')}
-              </div>
-            </div>
-
-            {soloState.status === 'loading' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
-                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin mx-auto" />
-                <p className="text-slate-300 font-medium">{t('AI กำลังสร้างคำถาม...', 'Generating question...')}</p>
-              </div>
-            )}
-
-            {(soloState.status === 'playing' || soloState.status === 'grading') && soloState.question && (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
-                    {t('คำถาม', 'Question')}
-                  </span>
-                  <h2 className="text-2xl font-black mt-1 leading-snug">{soloState.question.question}</h2>
-                  {soloState.question.hint && (
-                    <p className="text-xs text-slate-400 mt-1.5">{soloState.question.hint}</p>
-                  )}
-                </div>
-
-                {soloState.question.defaultBans?.length > 0 && (
-                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30">
-                    <div className="text-xs font-bold text-rose-300 mb-2 flex items-center gap-1.5">
-                      <Ban className="w-4 h-4" />
-                      {t('คำต้องห้าม (ห้ามตอบคำเหล่านี้):', 'Banned Obvious Answers:')}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {soloState.question.defaultBans.map((b, i) => (
-                        <span key={i} className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-200 text-xs font-semibold">
-                          {b}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    submitSoloAnswer(false);
-                  }}
-                  className="flex gap-2"
-                >
-                  <input
-                    type="text"
-                    value={soloAnswer}
-                    onChange={(e) => setSoloAnswer(e.target.value)}
-                    disabled={soloState.status === 'grading'}
-                    placeholder={t('พิมพ์คำตอบที่แรร์ที่สุดของคุณ...', 'Type your rarest valid answer...')}
-                    className="flex-1 px-4 py-3.5 rounded-2xl bg-slate-950 border border-slate-700 focus:border-indigo-500 focus:outline-none text-white"
-                    autoFocus
-                  />
+            <div>
+              <label className="block text-xs font-semibold text-slate-400 mb-2">
+                {lang === 'th' ? 'จำนวนข้อต่อเกม' : 'Rounds per Game'}
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[3, 5, 7].map((num) => (
                   <button
-                    type="submit"
-                    disabled={soloState.status === 'grading' || !soloAnswer.trim()}
-                    className="px-5 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 font-bold text-white flex items-center gap-2"
-                  >
-                    {soloState.status === 'grading' ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Send className="w-5 h-5" />
-                    )}
-                    {t('ส่ง', 'Submit')}
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {soloState.status === 'result' && soloState.lastResult && (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {soloState.lastResult.status === 'valid' ? (
-                      <CheckCircle className="w-7 h-7 text-emerald-400" />
-                    ) : (
-                      <XCircle className="w-7 h-7 text-rose-400" />
-                    )}
-                    <div>
-                      <div className="font-black text-lg">
-                        {soloState.lastResult.status === 'valid'
-                          ? t(`ถูกต้อง! +${soloState.lastResult.points} คะแนน`, `Valid! +${soloState.lastResult.points} pts`)
-                          : t('อดคะแนน (0 คะแนน)', '0 Points')}
-                      </div>
-                      <div className="text-xs text-slate-400">
-                        {t('คำตอบของคุณ:', 'Your answer:')} <span className="text-white font-semibold">{soloState.lastResult.answer}</span>
-                      </div>
-                    </div>
-                  </div>
-                  {soloState.lastResult.status === 'valid' && (
-                    <div className="text-right">
-                      <div className="text-xs text-slate-400">{t('ความแรร์', 'Rarity')}</div>
-                      <div className="text-2xl font-black text-amber-400">{soloState.lastResult.rarity}/100</div>
-                    </div>
-                  )}
-                </div>
-
-                <p className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-sm text-slate-300">
-                  {soloState.lastResult.reason}
-                </p>
-
-                <button
-                  onClick={nextSoloRound}
-                  className="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-2"
-                >
-                  {t('ข้อถัดไป', 'Next Round')}
-                  <ArrowRight className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-
-            {soloState.status === 'finished' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center space-y-5">
-                <Trophy className="w-12 h-12 text-amber-400 mx-auto" />
-                <div>
-                  <h2 className="text-2xl font-black">{t('จบเกม Solo!', 'Solo Run Complete!')}</h2>
-                  <p className="text-4xl font-black text-indigo-400 mt-2">
-                    {soloState.score} <span className="text-base text-slate-400">{t('คะแนน', 'pts')}</span>
-                  </p>
-                </div>
-
-                <div className="space-y-2 text-left max-h-64 overflow-y-auto">
-                  {soloState.history.map((h, i) => (
-                    <div key={i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs flex justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-slate-400 truncate">{i + 1}. {h.question}</div>
-                        <div className="font-bold text-white mt-0.5">{h.answer}</div>
-                      </div>
-                      <span className={`font-black shrink-0 ${h.points > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        +{h.points}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={startSoloGame}
-                    className="py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-2"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                    {t('เล่นอีกครั้ง', 'Play Again')}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setView('home');
-                      setSoloState(null);
-                    }}
-                    className="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-200"
-                  >
-                    {t('กลับหน้าหลัก', 'Back Home')}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ==========================================
-            VIEW 3: MULTIPLAYER ROOM
-           ========================================== */}
-        {view === 'multi' && room && (
-          <div className="space-y-5">
-            {/* Room Top Bar + Clear 5-Step Progress */}
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="px-3.5 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/40 font-mono font-black text-indigo-300 tracking-widest">
-                    {room.code}
-                  </div>
-                  <div className="text-xs text-slate-400">
-                    {isHost ? (
-                      <span className="text-amber-400 font-bold flex items-center gap-1">
-                        <Crown className="w-3.5 h-3.5" /> {t('คุณคือหัวห้อง', 'You are Host')}
-                      </span>
-                    ) : (
-                      <span>{t('ผู้เล่นในห้อง', 'Player')} • {activePlayerIds.length} {t('คน', 'online')}</span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={copyInviteLink}
-                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5"
-                  >
-                    {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5 text-indigo-400" />}
-                    {copiedLink ? t('คัดลอกแล้ว!', 'Copied!') : t('คัดลอกลิงก์', 'Copy Link')}
-                  </button>
-                  <button
-                    onClick={() => setShowQrModal(true)}
-                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5"
-                  >
-                    <QrCode className="w-3.5 h-3.5 text-indigo-400" />
-                    QR
-                  </button>
-                  <button
-                    onClick={handleLeaveRoom}
-                    className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs font-bold"
-                  >
-                    {t('ออกห้อง', 'Leave')}
-                  </button>
-                </div>
-              </div>
-
-              {/* 5-Step Progress Bar */}
-              <div className="grid grid-cols-5 gap-1.5">
-                {mpPhases.map((p, idx) => (
-                  <div
-                    key={p.key}
-                    className={`py-1.5 px-2 rounded-lg text-center text-[11px] font-bold truncate transition ${
-                      idx === activePhaseIndex
-                        ? 'bg-indigo-600 text-white'
-                        : idx < activePhaseIndex
-                        ? 'bg-emerald-500/20 text-emerald-300'
-                        : 'bg-slate-950 text-slate-500'
+                    key={num}
+                    type="button"
+                    onClick={() => setTotalRounds(num)}
+                    className={`py-2.5 rounded-xl text-sm font-bold border transition ${
+                      totalRounds === num
+                        ? 'bg-indigo-600 border-indigo-500 text-white'
+                        : 'bg-[#080d18] border-slate-800 text-slate-400 hover:text-white'
                     }`}
                   >
-                    {lang === 'th' ? p.th : p.en}
+                    {num} {lang === 'th' ? 'ข้อ' : 'Q'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* โหมดการเล่นทั้งหมด (ครบทั้ง 3 โหมด) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* โหมด 1: เล่นคนเดียว */}
+            <div className="bg-[#0f1626] border border-slate-800 hover:border-indigo-500/50 rounded-3xl p-5 flex flex-col justify-between transition">
+              <div>
+                <div className="w-11 h-11 rounded-2xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center mb-4">
+                  <User className="w-6 h-6" />
+                </div>
+                <h2 className="font-bold text-base text-white mb-1">
+                  {lang === 'th' ? 'เล่นคนเดียว' : 'Solo Mode'}
+                </h2>
+                <p className="text-xs text-slate-400 leading-relaxed mb-5">
+                  {lang === 'th'
+                    ? 'ทายสวนกระแสสะสมสตรีคและเก็บคะแนนไต่อันดับผู้เล่นสูงสุด'
+                    : 'Challenge the crowd survey solo, build win streaks, and climb the leaderboard.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={loadingQuestions}
+                onClick={startSoloGame}
+                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-50"
+              >
+                {loadingQuestions ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Play className="w-4 h-4" />
+                )}
+                {lang === 'th' ? 'เริ่มเล่นคนเดียว' : 'Play Solo'}
+              </button>
+            </div>
+
+            {/* โหมด 2: ผู้เล่นหลายคนในเครื่องเดียว (Pass & Play) */}
+            <div className="bg-[#0f1626] border border-emerald-500/40 hover:border-emerald-400 rounded-3xl p-5 flex flex-col justify-between transition relative overflow-hidden">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-11 h-11 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+                    <Smartphone className="w-6 h-6" />
+                  </div>
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300">
+                    2–8 {lang === 'th' ? 'คน' : 'Players'}
+                  </span>
+                </div>
+                <h2 className="font-bold text-base text-white mb-1">
+                  {lang === 'th'
+                    ? 'ผู้เล่นหลายคนในเครื่องเดียว'
+                    : 'Single-Device Multiplayer'}
+                </h2>
+                <p className="text-xs text-slate-400 leading-relaxed mb-5">
+                  {lang === 'th'
+                    ? 'ผลัดกันแอบกดคำตอบทีละคนบนมือถือหรือคอมเครื่องเดียว แล้วมาลุ้นเฉลยพร้อมกัน'
+                    : 'Pass & Play on one phone or computer with secret turn-by-turn picks.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScreen('local_setup')}
+                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition"
+              >
+                <Users className="w-4 h-4" />
+                {lang === 'th' ? 'ตั้งค่าผู้เล่นในเครื่อง' : 'Setup Pass & Play'}
+              </button>
+            </div>
+
+            {/* โหมด 3: ห้องออนไลน์หลายคน */}
+            <div className="bg-[#0f1626] border border-slate-800 hover:border-purple-500/50 rounded-3xl p-5 flex flex-col justify-between transition">
+              <div>
+                <div className="w-11 h-11 rounded-2xl bg-purple-500/15 text-purple-400 flex items-center justify-center mb-4">
+                  <Wifi className="w-6 h-6" />
+                </div>
+                <h2 className="font-bold text-base text-white mb-1">
+                  {lang === 'th' ? 'ห้องออนไลน์กับเพื่อน' : 'Online Multiplayer'}
+                </h2>
+                <p className="text-xs text-slate-400 leading-relaxed mb-3">
+                  {lang === 'th'
+                    ? 'สร้างห้องรับรหัส 6 หลัก หรือกรอกรหัสห้องเพื่อเล่นจากคนละเครื่อง'
+                    : 'Create a 6-digit room or enter a code to play across devices.'}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  disabled={onlineLoading || loadingQuestions}
+                  onClick={createOnlineRoom}
+                  className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition disabled:opacity-50"
+                >
+                  {onlineLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  {lang === 'th' ? 'สร้างห้องออนไลน์ใหม่' : 'Create Room'}
+                </button>
+
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={roomCodeInput}
+                    onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                    placeholder={lang === 'th' ? 'รหัสห้อง' : 'CODE'}
+                    className="w-full px-3 py-2 rounded-xl bg-[#080d18] border border-slate-700 text-xs text-white uppercase tracking-wider focus:outline-none focus:border-purple-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={onlineLoading}
+                    onClick={joinOnlineRoom}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-white border border-slate-700 shrink-0"
+                  >
+                    {lang === 'th' ? 'เข้า' : 'Join'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {onlineError && (
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{onlineError}</span>
+            </div>
+          )}
+
+          {/* ตารางอันดับผู้เล่นสูงสุด */}
+          {leaderboard.length > 0 && (
+            <div className="bg-[#0f1626] border border-slate-800 rounded-3xl p-5">
+              <div className="flex items-center gap-2 font-bold text-sm text-white mb-4">
+                <Crown className="w-4 h-4 text-amber-400" />
+                {lang === 'th'
+                  ? 'อันดับนักทายสวนกระแสสูงสุด (Top 5)'
+                  : 'Top Reverse Trivia Players'}
+              </div>
+              <div className="space-y-2">
+                {leaderboard.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-[#080d18] border border-slate-800/80"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center ${
+                          idx === 0
+                            ? 'bg-amber-500/20 text-amber-300'
+                            : idx === 1
+                            ? 'bg-slate-400/20 text-slate-300'
+                            : idx === 2
+                            ? 'bg-orange-600/20 text-orange-300'
+                            : 'bg-slate-800 text-slate-400'
+                        }`}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span className="text-lg">{item.avatar || '😎'}</span>
+                      <span className="text-sm font-semibold text-slate-200">
+                        {item.displayName || item.id}
+                      </span>
+                    </div>
+                    <span className="text-sm font-bold text-amber-400">
+                      {item.score || 0} {lang === 'th' ? 'คะแนน' : 'pts'}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
-            {/* Preview URL Warning for Host */}
-            {isVercelPreviewUrl && room.status === 'lobby' && (
-              <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2.5">
-                <ShieldAlert className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
-                <div>
-                  <span className="font-bold">{t('คำเตือนลิงก์ Vercel Preview:', 'Vercel Preview URL detected:')}</span>{' '}
-                  {t(
-                    'ตอนนี้คุณเปิดจากลิงก์ Preview เพื่อนที่สแกน QR อาจติดหน้า Login ของ Vercel ให้เปิดเว็บจากโดเมนหลัก (Production Domain) หรือปิด Vercel Authentication ใน Settings → Deployment Protection',
-                    'Friends opening this Preview URL may be asked to log into Vercel. Use your main Production domain or disable Vercel Authentication in Deployment Protection.'
-                  )}
-                </div>
-              </div>
-            )}
+  // =========================================================================
+  // 3. หน้าตั้งค่าผู้เล่นหลายคนในเครื่องเดียว (LOCAL MULTIPLAYER SETUP)
+  // =========================================================================
+  if (screen === 'local_setup') {
+    return (
+      <div className="min-h-screen bg-[#070b14] text-slate-100 p-4 sm:p-6">
+        <TopBar />
 
-            {/* Host Error Recovery Bar */}
-            {hostGradingError && isHost && (
-              <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-200 text-sm flex flex-wrap items-center justify-between gap-3">
-                <span>{t(`เกิดข้อผิดพลาดจาก AI: ${hostGradingError}`, `AI Error: ${hostGradingError}`)}</span>
-                <div className="flex gap-2">
-                  {room.status === 'grading' && (
-                    <button
-                      onClick={() => hostGradeRound(true)}
-                      className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" /> {t('ตรวจใหม่', 'Retry')}
-                    </button>
-                  )}
-                  <button
-                    onClick={hostBackToLobby}
-                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold"
-                  >
-                    {t('กลับห้องรอ', 'Back to Lobby')}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ------------------------------------------
-                MP PHASE 1: LOBBY
-               ------------------------------------------ */}
-            {room.status === 'lobby' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Players + Kick/Ban Manager */}
-                <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
-                  <div className="flex items-center justify-between">
-                    <h2 className="font-black text-lg flex items-center gap-2">
-                      <Users className="w-5 h-5 text-indigo-400" />
-                      {t('ผู้เล่นในห้อง', 'Players')} ({sortedPlayers.length})
-                    </h2>
-                    {!isHost && (
-                      <button
-                        onClick={handleToggleReady}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
-                          room.players?.[user.id]?.ready
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-                        }`}
-                      >
-                        {room.players?.[user.id]?.ready ? t('✓ พร้อมแล้ว', '✓ Ready') : t('กดพร้อม', 'Mark Ready')}
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {sortedPlayers.map((p) => {
-                      const pIsHost = p.id === room.hostId;
-                      return (
-                        <div
-                          key={p.id}
-                          className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-950 border border-slate-800"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-300 font-black flex items-center justify-center uppercase">
-                              {(p.name || p.id).slice(0, 2)}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-bold text-sm flex items-center gap-1.5 truncate">
-                                {p.name || p.id}
-                                {pIsHost && <Crown className="w-4 h-4 text-amber-400 shrink-0" />}
-                                {p.id === user.id && (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
-                                    {t('คุณ', 'You')}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-xs text-slate-400">
-                                {pIsHost
-                                  ? t('หัวห้อง', 'Host')
-                                  : p.ready
-                                  ? t('พร้อมเล่นแล้ว', 'Ready')
-                                  : t('กำลังรอ...', 'Waiting...')}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Host Kick / Ban buttons */}
-                          {isHost && p.id !== user.id && (
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <button
-                                onClick={() => handleKickPlayer(p.id)}
-                                title={t('เตะออก (เข้าใหม่ได้)', 'Kick player')}
-                                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-amber-600/30 text-slate-300 hover:text-amber-300 text-xs font-bold flex items-center gap-1"
-                              >
-                                <UserX className="w-3.5 h-3.5" />
-                                {t('เตะ', 'Kick')}
-                              </button>
-                              <button
-                                onClick={() => handleBanPlayer(p.id)}
-                                title={t('แบนถาวร (ห้ามเข้าห้องนี้)', 'Ban player')}
-                                className="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-bold flex items-center gap-1 transition"
-                              >
-                                <Ban className="w-3.5 h-3.5" />
-                                {t('แบน', 'Ban')}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Banned Players Management (Host Only) */}
-                  {isHost && Array.isArray(room.bannedIds) && room.bannedIds.length > 0 && (
-                    <div className="pt-4 border-t border-slate-800">
-                      <div className="text-xs font-bold text-rose-400 mb-2 flex items-center gap-1.5">
-                        <Ban className="w-4 h-4" />
-                        {t('รายชื่อผู้เล่นที่ถูกแบน', 'Banned Players')} ({room.bannedIds.length})
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {room.bannedIds.map((bid) => (
-                          <div
-                            key={bid}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs"
-                          >
-                            <span className="text-rose-200 font-semibold">{bid}</span>
-                            <button
-                              onClick={() => handleUnbanPlayer(bid)}
-                              className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-0.5"
-                            >
-                              <Unlock className="w-3 h-3" /> {t('ปลดแบน', 'Unban')}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right Column: Room Settings & Start */}
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-                  <h3 className="font-black text-base">{t('ตั้งค่าห้อง', 'Room Settings')}</h3>
-
-                  <div>
-                    <label className="block text-xs text-slate-400 mb-1.5">{t('หมวดหมู่', 'Category')}</label>
-                    <select
-                      value={room.category || 'general'}
-                      disabled={!isHost}
-                      onChange={(e) => handleUpdateRoomSetting({ category: e.target.value })}
-                      className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs disabled:opacity-60"
-                    >
-                      {CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {lang === 'th' ? c.th : c.en}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1.5">{t('จำนวนข้อ', 'Rounds')}</label>
-                      <select
-                        value={room.totalRounds || 5}
-                        disabled={!isHost}
-                        onChange={(e) => handleUpdateRoomSetting({ totalRounds: Number(e.target.value) })}
-                        className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs disabled:opacity-60"
-                      >
-                        {[3, 5, 7, 10].map((n) => (
-                          <option key={n} value={n}>
-                            {n} {t('ข้อ', 'Rounds')}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs text-slate-400 mb-1.5">{t('เวลาตอบ', 'Answer Time')}</label>
-                      <select
-                        value={room.answerTime || 30}
-                        disabled={!isHost}
-                        onChange={(e) => handleUpdateRoomSetting({ answerTime: Number(e.target.value) })}
-                        className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs disabled:opacity-60"
-                      >
-                        {[20, 30, 45, 60].map((s) => (
-                          <option key={s} value={s}>
-                            {s} {t('วิ', 'sec')}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Toggle Answer Ban Phase */}
-                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-xs font-bold flex items-center gap-1.5">
-                        <Ban className="w-3.5 h-3.5 text-rose-400" />
-                        {t('ช่วงแบนคำตอบก่อนทาย', 'Pre-Round Ban Phase')}
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        {t('ให้ทุกคนแบนคำตอบคนละ 1 คำก่อนเริ่มทาย', 'Each player bans 1 obvious answer first')}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={!isHost}
-                      onClick={() => handleUpdateRoomSetting({ enableBanPhase: !room.enableBanPhase })}
-                      className={`w-12 h-7 rounded-full transition relative shrink-0 disabled:opacity-60 ${
-                        room.enableBanPhase ? 'bg-indigo-600' : 'bg-slate-700'
-                      }`}
-                    >
-                      <span
-                        className={`block w-5 h-5 rounded-full bg-white absolute top-1 transition ${
-                          room.enableBanPhase ? 'left-6' : 'left-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {isHost ? (
-                    <button
-                      onClick={() => hostStartRound(1, true)}
-                      className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
-                    >
-                      <Play className="w-5 h-5" />
-                      {t('เริ่มเกมเลย!', 'Start Game')}
-                    </button>
-                  ) : (
-                    <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-center text-xs text-indigo-300 font-medium">
-                      {t('รอหัวห้องกดเริ่มเกม...', 'Waiting for host to start...')}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* ------------------------------------------
-                MP PHASE: GENERATING QUESTION
-               ------------------------------------------ */}
-            {room.status === 'generating' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
-                <Loader2 className="w-10 h-10 text-indigo-400 animate-spin mx-auto" />
-                <h2 className="text-xl font-black">
-                  {t(`กำลังเตรียมคำถามข้อที่ ${room.round}...`, `Preparing Round ${room.round}...`)}
-                </h2>
-              </div>
-            )}
-
-            {/* ------------------------------------------
-                MP PHASE 2: BANNING PHASE (NO HANG!)
-               ------------------------------------------ */}
-            {room.status === 'banning' && room.question && (
-              <div className="max-w-2xl mx-auto bg-slate-900 border border-rose-500/30 rounded-3xl p-6 space-y-5">
-                <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold flex items-center gap-1.5">
-                    <Ban className="w-3.5 h-3.5" />
-                    {t(`ข้อ ${room.round}/${room.totalRounds} • ช่วงแบนคำตอบ`, `Round ${room.round}/${room.totalRounds} • Ban Phase`)}
-                  </span>
-                  <div className={`font-mono font-black text-lg flex items-center gap-1.5 ${mpTimeLeft <= 5 ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`}>
-                    <Clock className="w-5 h-5" />
-                    {mpTimeLeft}s
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-slate-400 mb-1">{t('คำถามรอบนี้คือ:', 'This round question:')}</div>
-                  <h2 className="text-2xl font-black leading-snug">{room.question.question}</h2>
-                </div>
-
-                <div className="text-xs text-slate-400">
-                  {t('ส่งคำแบนแล้ว:', 'Banned submitted:')}{' '}
-                  <span className="text-white font-bold">
-                    {activePlayerIds.filter((pid) => Boolean(room.bans?.[pid])).length} / {activePlayerIds.length}
-                  </span>
-                </div>
-
-                {room.bans?.[user.id] ? (
-                  <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 text-sm flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 shrink-0" />
-                    <span>
-                      {room.bans[user.id].skipped
-                        ? t('คุณเลือกข้ามการแบน รอเพื่อนคนอื่นสักครู่...', 'You skipped banning. Waiting for others...')
-                        : t(`คุณแบนคำว่า "${room.bans[user.id].word}" แล้ว รอเพื่อนคนอื่น...`, `You banned "${room.bans[user.id].word}". Waiting for others...`)}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <p className="text-sm text-rose-200">
-                      {t('พิมพ์ 1 คำตอบที่คิดว่าเป็นคำฮิต เพื่อแบนไม่ให้ใครใช้ในรอบนี้:', 'Type 1 obvious answer to ban for this round:')}
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={mpBanInput}
-                        onChange={(e) => setMpBanInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && mpBanInput.trim()) handleSubmitBan(false);
-                        }}
-                        placeholder={t('พิมพ์คำที่อยากแบน...', 'Type a word to ban...')}
-                        className="flex-1 px-4 py-3 rounded-2xl bg-slate-950 border border-slate-700 focus:border-rose-500 focus:outline-none text-white"
-                        autoFocus
-                      />
-                      <button
-                        onClick={() => handleSubmitBan(false)}
-                        disabled={!mpBanInput.trim()}
-                        className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 font-bold text-white"
-                      >
-                        {t('แบนคำนี้', 'Ban')}
-                      </button>
-                      <button
-                        onClick={() => handleSubmitBan(true)}
-                        className="px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300"
-                      >
-                        {t('ข้าม', 'Skip')}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {isHost && (
-                  <div className="pt-3 border-t border-slate-800 flex justify-end">
-                    <button
-                      onClick={hostAdvanceToAnswering}
-                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-xs font-bold text-slate-200 flex items-center gap-1.5 transition"
-                    >
-                      <SkipForward className="w-4 h-4" />
-                      {t('เริ่มช่วงตอบคำถามเลย (หัวห้อง)', 'Force Start Answering')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ------------------------------------------
-                MP PHASE 3: ANSWERING PHASE
-               ------------------------------------------ */}
-            {room.status === 'answering' && room.question && (
-              <div className="max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
-                <div className="flex items-center justify-between">
-                  <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold">
-                    {t(`ข้อ ${room.round} / ${room.totalRounds}`, `Round ${room.round} / ${room.totalRounds}`)}
-                  </span>
-                  <div className={`font-mono font-black text-xl flex items-center gap-1.5 ${mpTimeLeft <= 5 ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`}>
-                    <Clock className="w-5 h-5" />
-                    {mpTimeLeft}s
-                  </div>
-                </div>
-
-                <div>
-                  <h2 className="text-2xl font-black leading-snug">{room.question.question}</h2>
-                  {room.question.hint && <p className="text-xs text-slate-400 mt-1">{room.question.hint}</p>}
-                </div>
-
-                {/* All Active Banned Words */}
-                {room.bannedWords?.length > 0 && (
-                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30">
-                    <div className="text-xs font-bold text-rose-300 mb-2 flex items-center gap-1.5">
-                      <Ban className="w-4 h-4" />
-                      {t('คำต้องห้ามรอบนี้ (ตอบโดน = 0 คะแนน):', 'Banned Words This Round (0 pts):')}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {room.bannedWords.map((w, idx) => (
-                        <span key={idx} className="px-2.5 py-1 rounded-lg bg-rose-500/25 text-rose-100 text-xs font-bold">
-                          {w}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Submission Form or Submitted Confirmation */}
-                {room.submissions?.[user.id] ? (
-                  <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 space-y-1">
-                    <div className="text-emerald-300 font-bold text-sm flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5" />
-                      {t('ส่งคำตอบแล้ว!', 'Answer Submitted!')}
-                    </div>
-                    <div className="text-xs text-slate-300">
-                      {t('คำตอบของคุณ:', 'Your answer:')} <span className="font-bold text-white">{room.submissions[user.id].text}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSubmitMpAnswer} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={mpAnswer}
-                      onChange={(e) => setMpAnswer(e.target.value)}
-                      placeholder={t('พิมพ์คำตอบที่ถูกและไม่ซ้ำใคร...', 'Type a rare, unique valid answer...')}
-                      className="flex-1 px-4 py-3.5 rounded-2xl bg-slate-950 border border-slate-700 focus:border-indigo-500 focus:outline-none text-white"
-                      autoFocus
-                    />
-                    <button
-                      type="submit"
-                      disabled={!mpAnswer.trim()}
-                      className="px-5 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 font-bold text-white flex items-center gap-2"
-                    >
-                      <Send className="w-5 h-5" />
-                      {t('ส่ง', 'Send')}
-                    </button>
-                  </form>
-                )}
-
-                {/* Live Submission Status per Player */}
-                <div className="pt-3 border-t border-slate-800 space-y-2">
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span>
-                      {t('สถานะการส่งคำตอบ:', 'Submissions:')}{' '}
-                      <strong className="text-white">
-                        {activePlayerIds.filter((pid) => Boolean(room.submissions?.[pid])).length} / {activePlayerIds.length}
-                      </strong>
-                    </span>
-                    {isHost && (
-                      <button
-                        onClick={() => hostGradeRound(false)}
-                        className="text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1"
-                      >
-                        <SkipForward className="w-3.5 h-3.5" />
-                        {t('ปิดรับและตรวจเลย', 'Grade Now')}
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {sortedPlayers.map((p) => {
-                      const done = Boolean(room.submissions?.[p.id]);
-                      return (
-                        <span
-                          key={p.id}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 ${
-                            done
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : 'bg-slate-950 text-slate-400 border border-slate-800'
-                          }`}
-                        >
-                          {done ? '✓' : '…'} {p.name || p.id}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ------------------------------------------
-                MP PHASE: GRADING
-               ------------------------------------------ */}
-            {room.status === 'grading' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-4">
-                <Loader2 className="w-10 h-10 text-amber-400 animate-spin mx-auto" />
-                <h2 className="text-xl font-black">{t('AI กำลังตรวจความถูกต้องและความแรร์...', 'AI is grading answers...')}</h2>
-                {isHost && (
-                  <button
-                    onClick={() => hostGradeRound(true)}
-                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 inline-flex items-center gap-1.5"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    {t('กดตรวจซ้ำถ้ารอนานเกิน 10 วิ', 'Retry if stuck')}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* ------------------------------------------
-                MP PHASE 4: ROUND RESULTS
-               ------------------------------------------ */}
-            {room.status === 'results' && room.roundResults && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-                  <div>
-                    <div className="text-xs font-bold text-indigo-400">
-                      {t(`ผลลัพธ์ข้อที่ ${room.round} / ${room.totalRounds}`, `Round ${room.round} Results`)}
-                    </div>
-                    <h2 className="text-xl font-black mt-0.5">{room.question?.question}</h2>
-                  </div>
-
-                  <div className="space-y-3">
-                    {sortedPlayers.map((p) => {
-                      const res = room.roundResults[p.id];
-                      if (!res) return null;
-                      const badge =
-                        res.status === 'valid'
-                          ? { cls: 'bg-emerald-500/20 text-emerald-300', label: t(`✅ ถูกต้อง (+${res.points})`, `✅ Valid (+${res.points})`) }
-                          : res.status === 'duplicate'
-                          ? { cls: 'bg-amber-500/20 text-amber-300', label: t('👯 ใจตรงกัน! ซ้ำ (0)', '👯 Duplicate (0)') }
-                          : res.status === 'banned'
-                          ? { cls: 'bg-rose-500/20 text-rose-300', label: t('🚫 โดนคำต้องห้าม (0)', '🚫 Banned (0)') }
-                          : { cls: 'bg-slate-800 text-slate-400', label: t('❌ ไม่ผ่าน (0)', '❌ Invalid (0)') };
-
-                      return (
-                        <div key={p.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="font-bold text-sm">{p.name || p.id}</span>
-                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${badge.cls}`}>{badge.label}</span>
-                          </div>
-                          <div className="text-base font-black text-white">{res.answer}</div>
-                          {res.reason && <div className="text-xs text-slate-400">{res.reason}</div>}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {isHost ? (
-                    <button
-                      onClick={hostNextStepFromResults}
-                      className="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-2"
-                    >
-                      {room.round >= (room.totalRounds || 5)
-                        ? t('ดูสรุปผู้ชนะ!', 'View Final Podium!')
-                        : t('ไปข้อถัดไป', 'Next Round')}
-                      <ArrowRight className="w-5 h-5" />
-                    </button>
-                  ) : (
-                    <div className="p-3 rounded-2xl bg-slate-950 text-center text-xs text-slate-400">
-                      {t('รอหัวห้องกดไปข้อถัดไป...', 'Waiting for host to continue...')}
-                    </div>
-                  )}
-                </div>
-
-                {/* Live Standings */}
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-3 h-fit">
-                  <h3 className="font-black text-base flex items-center gap-2">
-                    <Trophy className="w-4 h-4 text-amber-400" />
-                    {t('ตารางคะแนนรวม', 'Standings')}
-                  </h3>
-                  <div className="space-y-2">
-                    {sortedPlayers.map((p, idx) => (
-                      <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-950 text-sm">
-                        <span className="font-bold truncate">
-                          #{idx + 1} {p.name || p.id}
-                        </span>
-                        <span className="font-black text-amber-400">{p.score || 0}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ------------------------------------------
-                MP PHASE 5: FINAL PODIUM
-               ------------------------------------------ */}
-            {room.status === 'finished' && (
-              <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-6">
-                <Trophy className="w-14 h-14 text-amber-400 mx-auto" />
-                <div>
-                  <h2 className="text-3xl font-black">{t('สรุปผู้ชนะ!', 'Final Results!')}</h2>
-                  {sortedPlayers[0] && (
-                    <p className="text-indigo-300 font-bold mt-2">
-                      👑 {sortedPlayers[0].name || sortedPlayers[0].id} — {sortedPlayers[0].score || 0} {t('คะแนน', 'pts')}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2.5 text-left">
-                  {sortedPlayers.map((p, idx) => (
-                    <div
-                      key={p.id}
-                      className={`flex items-center justify-between p-4 rounded-2xl border ${
-                        idx === 0
-                          ? 'bg-amber-500/15 border-amber-500/40'
-                          : 'bg-slate-950 border-slate-800'
-                      }`}
-                    >
-                      <div className="font-bold flex items-center gap-2">
-                        <span className="text-lg">
-                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                        </span>
-                        <span>{p.name || p.id}</span>
-                      </div>
-                      <span className="font-black text-amber-400 text-lg">{p.score || 0}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {isHost ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => hostStartRound(1, true)}
-                      className="py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-2"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      {t('เล่นอีกรอบ', 'Play Again')}
-                    </button>
-                    <button
-                      onClick={hostBackToLobby}
-                      className="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-200"
-                    >
-                      {t('กลับห้องรอ', 'Lobby')}
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400">{t('รอหัวห้องเริ่มเกมใหม่หรือกลับห้องรอ...', 'Waiting for host...')}</p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* QR Code Share Modal */}
-      {showQrModal && roomId && (
-        <div
-          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setShowQrModal(false)}
-        >
-          <div
-            className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 text-center space-y-4 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
+        <div className="w-full max-w-xl mx-auto bg-[#0f1626] border border-slate-800 rounded-3xl p-6">
+          <button
+            type="button"
+            onClick={() => setScreen('lobby')}
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-white mb-4"
           >
-            <h3 className="font-black text-lg">{t('สแกนเพื่อเข้าห้องทันที', 'Scan to Join Room')}</h3>
-            <div className="bg-white p-3 rounded-2xl inline-block">
-              <img src={qrImageUrl} alt="Room QR Code" className="w-52 h-52" />
-            </div>
-            <div className="font-mono font-black text-2xl tracking-widest text-indigo-300">{roomId}</div>
-            <div className="text-[11px] text-slate-400 break-all bg-slate-950 p-2.5 rounded-xl">{inviteUrl}</div>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={copyInviteLink}
-                className="py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1.5"
+            <ChevronLeft className="w-4 h-4" />
+            {lang === 'th' ? 'กลับหน้าหลัก' : 'Back to Lobby'}
+          </button>
+
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-bold text-white flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-emerald-400" />
+              {lang === 'th'
+                ? 'ผู้เล่นหลายคนในเครื่องเดียว (Pass & Play)'
+                : 'Single-Device Multiplayer'}
+            </h2>
+            <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 font-semibold">
+              {localPlayers.length} / 8 {lang === 'th' ? 'คน' : 'Players'}
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mb-5">
+            {lang === 'th'
+              ? 'แตะที่รูปไอคอนเพื่อเปลี่ยนรูปโปรไฟล์ และพิมพ์ชื่อผู้เล่นแต่ละคนได้เลยครับ'
+              : 'Tap an avatar to change it and enter each player name.'}
+          </p>
+
+          <div className="space-y-2.5 mb-5">
+            {localPlayers.map((player, idx) => (
+              <div
+                key={idx}
+                className="flex items-center gap-2.5 bg-[#080d18] border border-slate-800 p-2.5 rounded-2xl"
               >
-                {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                {copiedLink ? t('คัดลอกแล้ว', 'Copied') : t('คัดลอกลิงก์', 'Copy Link')}
+                <button
+                  type="button"
+                  onClick={() => cycleLocalPlayerAvatar(idx)}
+                  className="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-xl flex items-center justify-center shrink-0 border border-slate-700"
+                  title={lang === 'th' ? 'กดเพื่อเปลี่ยนไอคอน' : 'Click to change avatar'}
+                >
+                  {player.avatar}
+                </button>
+                <input
+                  type="text"
+                  value={player.name}
+                  onChange={(e) => updateLocalPlayerName(idx, e.target.value)}
+                  placeholder={
+                    lang === 'th' ? `ชื่อผู้เล่น ${idx + 1}` : `Player ${idx + 1}`
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-transparent border border-slate-800 focus:border-emerald-500 focus:outline-none text-sm text-white"
+                />
+                {localPlayers.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => removeLocalPlayer(idx)}
+                    className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            {localPlayers.length < 8 && (
+              <button
+                type="button"
+                onClick={addLocalPlayer}
+                className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm border border-slate-700 transition"
+              >
+                + {lang === 'th' ? 'เพิ่มผู้เล่น' : 'Add Player'}
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={loadingQuestions}
+              onClick={startLocalGame}
+              className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 transition disabled:opacity-50"
+            >
+              {loadingQuestions ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Play className="w-4 h-4" />
+              )}
+              {lang === 'th' ? 'เริ่มเล่นเลย!' : 'Start Game!'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // 4. หน้าเล่นเกมผู้เล่นหลายคนในเครื่องเดียว (LOCAL MULTIPLAYER GAMEPLAY)
+  // =========================================================================
+  if (screen === 'local_game') {
+    const currentQ = questions[localRound];
+    const currentPlayer = localPlayers[localTurnIndex];
+    const lowestIdx = currentQ ? getLowestPctIndex(currentQ.options) : 0;
+
+    if (localFinished) {
+      const sorted = [...localPlayers].sort((a, b) => b.score - a.score);
+      return (
+        <div className="min-h-screen bg-[#070b14] text-slate-100 p-4 sm:p-6">
+          <TopBar />
+          <div className="w-full max-w-xl mx-auto bg-[#0f1626] border border-slate-800 rounded-3xl p-6 text-center">
+            <div className="w-16 h-16 rounded-3xl bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-3 text-3xl">
+              👑
+            </div>
+            <h2 className="text-xl font-bold text-white mb-1">
+              {lang === 'th' ? 'สรุปผลผู้ชนะ!' : 'Final Standings!'}
+            </h2>
+            <p className="text-xs text-slate-400 mb-6">
+              {lang === 'th'
+                ? `ผู้ชนะคือ ${sorted[0]?.name} ด้วยคะแนน ${sorted[0]?.score} แต้ม!`
+                : `${sorted[0]?.name} wins with ${sorted[0]?.score} points!`}
+            </p>
+
+            <div className="space-y-2.5 mb-6 text-left">
+              {sorted.map((p, idx) => (
+                <div
+                  key={idx}
+                  className={`flex items-center justify-between p-3.5 rounded-2xl border ${
+                    idx === 0
+                      ? 'bg-amber-500/10 border-amber-500/40'
+                      : 'bg-[#080d18] border-slate-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-sm w-6 text-center text-slate-400">
+                      #{idx + 1}
+                    </span>
+                    <span className="text-2xl">{p.avatar}</span>
+                    <span className="font-bold text-sm text-white">{p.name}</span>
+                  </div>
+                  <span className="font-bold text-amber-400 text-sm">
+                    {p.score} {lang === 'th' ? 'คะแนน' : 'pts'}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={startLocalGame}
+                className="py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                {lang === 'th' ? 'เล่นอีกรอบ' : 'Play Again'}
               </button>
               <button
-                onClick={() => setShowQrModal(false)}
-                className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200"
+                type="button"
+                onClick={() => setScreen('lobby')}
+                className="py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm"
               >
-                {t('ปิด', 'Close')}
+                {lang === 'th' ? 'กลับหน้าหลัก' : 'Main Lobby'}
               </button>
             </div>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-[#070b14] text-slate-100 p-4 sm:p-6">
+        <TopBar />
+
+        <div className="w-full max-w-xl mx-auto bg-[#0f1626] border border-slate-800 rounded-3xl p-6">
+          <div className="flex items-center justify-between text-xs text-slate-400 mb-4">
+            <span className="font-bold text-emerald-400">
+              {lang === 'th'
+                ? `ข้อที่ ${localRound + 1} / ${questions.length}`
+                : `Round ${localRound + 1} / ${questions.length}`}
+            </span>
+            <span>
+              {questionSource === 'ai' ? '✨ Gemini AI' : '🎲 Classic Pack'}
+            </span>
+          </div>
+
+          {/* หน้าจอบังคำตอบเวลาส่งเครื่องให้คนถัดไป */}
+          {!localReveal && localPrivacyScreen ? (
+            <div className="py-10 text-center space-y-5">
+              <div className="w-20 h-20 rounded-3xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-4xl mx-auto">
+                {currentPlayer.avatar}
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wider text-emerald-400 font-bold mb-1">
+                  {lang === 'th'
+                    ? `คิวที่ ${localTurnIndex + 1} จาก ${localPlayers.length} คน`
+                    : `Player ${localTurnIndex + 1} of ${localPlayers.length}`}
+                </p>
+                <h2 className="text-2xl font-bold text-white">
+                  {lang === 'th'
+                    ? `ส่งเครื่องให้ "${currentPlayer.name}"`
+                    : `Pass device to "${currentPlayer.name}"`}
+                </h2>
+                <p className="text-xs text-slate-400 mt-1.5">
+                  {lang === 'th'
+                    ? 'คนอื่นห้ามแอบดูหน้าจอนะ! กดปุ่มด้านล่างเมื่อพร้อมเลือกคำตอบ'
+                    : 'No peeking! Tap below when ready to pick secretly.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLocalPrivacyScreen(false)}
+                className="px-6 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/20 transition"
+              >
+                {lang === 'th'
+                  ? `ฉันคือ ${currentPlayer.name} — พร้อมตอบ!`
+                  : `I am ${currentPlayer.name} — Ready!`}
+              </button>
+            </div>
+          ) : !localReveal ? (
+            /* หน้าเลือกคำตอบแบบลับของแต่ละคน */
+            <div>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold mb-4 w-fit">
+                <span>{currentPlayer.avatar}</span>
+                <span>
+                  {lang === 'th'
+                    ? `กำลังเลือกคำตอบของ: ${currentPlayer.name}`
+                    : `Picking for: ${currentPlayer.name}`}
+                </span>
+              </div>
+
+              <h3 className="text-base sm:text-lg font-bold text-white leading-snug mb
