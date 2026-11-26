@@ -1,1511 +1,1507 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {
-  Sparkles, Trophy, Flame, Heart, RefreshCw, Lightbulb, ShieldAlert,
-  Users, User, Play, CheckCircle2, XCircle, Crown, Award, Share2,
-  Copy, Check, Lock, Eye, EyeOff, Ban, Layers, History, LogOut,
-  Plus, ArrowRight, AlertTriangle, Globe, Coins, Zap, Home, KeyRound, Sliders
-} from 'lucide-react';
-import {
-  doc, getDoc, setDoc, updateDoc, onSnapshot, collection,
-  query, orderBy, limit
-} from 'firebase/firestore';
 import { db } from './firebase';
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  onSnapshot,
+  collection,
+  query,
+  orderBy,
+  limit,
+  getDocs,
+  arrayUnion,
+  arrayRemove,
+  deleteField,
+} from 'firebase/firestore';
+import {
+  Trophy,
+  Users,
+  Play,
+  Copy,
+  Check,
+  QrCode,
+  LogOut,
+  ShieldAlert,
+  Ban,
+  Crown,
+  Clock,
+  Sparkles,
+  RefreshCw,
+  ArrowRight,
+  Globe,
+  UserX,
+  RotateCcw,
+  Send,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Zap,
+  Flame,
+  Target,
+  Plus,
+  LogIn,
+  Unlock,
+  SkipForward,
+  Loader2,
+  Link2,
+} from 'lucide-react';
 
-const AVATARS = ['🦊', '🐉', '🦉', '🐙', '🦄', '🐼', '🦁', '🐸', '🐧', '🦖', '👻', '🤖'];
+// ==========================================
+// CONSTANTS & HELPERS
+// ==========================================
 
-const RARITY_CONFIG = {
-  Invalid: {
-    labelTh: 'ผิดเงื่อนไข',
-    color: 'text-rose-400',
-    border: 'border-rose-500/60',
-    bg: 'bg-rose-950/40',
-    badge: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
-    points: 0,
+const CATEGORIES = [
+  { id: 'general', th: 'ความรู้รอบตัว', en: 'General Knowledge' },
+  { id: 'food', th: 'อาหารและเครื่องดื่ม', en: 'Food & Drinks' },
+  { id: 'geography', th: 'ภูมิศาสตร์และประเทศ', en: 'Geography & Countries' },
+  { id: 'pop', th: 'หนัง เกม และเพลง', en: 'Movies, Games & Music' },
+  { id: 'science', th: 'วิทยาศาสตร์และสัตว์', en: 'Science & Animals' },
+  { id: 'thai', th: 'เรื่องไทยๆ', en: 'Thai Culture & Local' },
+];
+
+const SOLO_MODES = [
+  {
+    id: 'classic',
+    icon: Target,
+    titleTh: 'คลาสสิก (5 ข้อ)',
+    titleEn: 'Classic (5 Rounds)',
+    descTh: 'ทายคำตอบที่ถูกต้องแต่แรร์ที่สุด สะสมคะแนนสูงสุดใน 5 ข้อ',
+    descEn: 'Give the rarest valid answers across 5 rounds.',
   },
-  Common: {
-    labelTh: 'โหลสุดๆ',
-    color: 'text-slate-300',
-    border: 'border-slate-500/60', 
-    bg: 'bg-slate-900/70',
-    badge: 'bg-slate-500/20 text-slate-200 border-slate-400/40',
-    points: 10,
+  {
+    id: 'survival',
+    icon: Flame,
+    titleTh: 'เอาชีวิตรอด (3 หัวใจ)',
+    titleEn: 'Survival (3 Lives)',
+    descTh: 'ตอบผิดหรือโดนคำต้องห้ามเสีย 1 หัวใจ เล่นยาวจนกว่าจะหมด',
+    descEn: 'Wrong or banned answers cost 1 life. Survive as long as you can.',
   },
-  Uncommon: {
-    labelTh: 'คุ้นหู',
-    color: 'text-emerald-400',
-    border: 'border-emerald-500/60',
-    bg: 'bg-emerald-950/30',
-    badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
-    points: 30,
+  {
+    id: 'blitz',
+    icon: Zap,
+    titleTh: 'สปีดบลิตซ์ (15 วิ)',
+    titleEn: 'Speed Blitz (15s)',
+    descTh: 'จำกัดเวลาตอบข้อละ 15 วินาที ท้าความไวและไหวพริบ',
+    descEn: 'Only 15 seconds per question. Think fast!',
   },
-  Rare: {
-    labelTh: 'เฉพาะทาง',
-    color: 'text-sky-400',
-    border: 'border-sky-500/70',
-    bg: 'bg-sky-950/30',
-    badge: 'bg-sky-500/20 text-sky-300 border-sky-500/40',
-    points: 55,
-  },
-  Epic: {
-    labelTh: 'สายลึก',
-    color: 'text-purple-400',
-    border: 'border-purple-500/70',
-    bg: 'bg-purple-950/30',
-    badge: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
-    points: 80,
-  },
-  Legendary: {
-    labelTh: 'แรร์มาก',
-    color: 'text-amber-400',
-    border: 'border-amber-400/80',
-    bg: 'bg-amber-950/30',
-    badge: 'bg-amber-500/20 text-amber-300 border-amber-400/50',
-    points: 100,
-  },
-  Mythic: {
-    labelTh: 'ระดับตำนาน',
-    color: 'text-fuchsia-300',
-    border: 'border-fuchsia-400',
-    bg: 'bg-gradient-to-br from-fuchsia-950/50 via-purple-950/40 to-amber-950/40',
-    badge: 'bg-gradient-to-r from-fuchsia-500/30 to-amber-500/30 text-amber-200 border-fuchsia-400/60',
-    points: 125,
-  },
+];
+
+const DIFFICULTIES = [
+  { id: 'easy', th: 'ง่าย', en: 'Easy' },
+  { id: 'medium', th: 'กลาง', en: 'Medium' },
+  { id: 'hard', th: 'ยาก', en: 'Hard' },
+];
+
+const normalizeText = (str = '') =>
+  String(str)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+
+const sanitizeId = (raw = '') =>
+  String(raw)
+    .trim()
+    .replace(/[.#$/\[\]\s]+/g, '_')
+    .slice(0, 24);
+
+const generateRoomCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  for (let i = 0; i < 6; i++) {
+    out += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return out;
 };
 
-const RARITY_RANK = {
-  Invalid: 0,
-  Common: 1,
-  Uncommon: 2,
-  Rare: 3,
-  Epic: 4,
-  Legendary: 5,
-  Mythic: 6,
-};
-
-const cleanFirestoreData = (obj) => JSON.parse(JSON.stringify(obj));
-
-const parseJsonSafe = (raw) => {
-  const cleaned = raw
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/```\s*$/i, '')
+const extractJson = (rawText = '') => {
+  const cleaned = String(rawText)
+    .replace(/```json/gi, '')
+    .replace(/```/g, '')
     .trim();
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end > start) {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    }
+    throw new Error('AI ตอบกลับไม่เป็นรูปแบบ JSON กรุณาลองใหม่');
+  }
 };
 
-async function callGemini({ prompt, systemInstruction, responseMimeType = 'application/json' }) {
+async function callGemini({ prompt, systemInstruction }) {
   const res = await fetch('/api/gemini', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, systemInstruction, responseMimeType }),
+    body: JSON.stringify({
+      prompt,
+      systemInstruction,
+      responseMimeType: 'application/json',
+    }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'AI request failed');
-  return data.text;
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.error) {
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  return extractJson(data.text);
 }
 
-function getStreakMultiplier(streak) {
-  if (streak >= 7) return 2.0;
-  if (streak >= 5) return 1.5;
-  if (streak >= 3) return 1.2;
-  return 1.0;
+async function generateQuestionAI({ category, difficulty, lang, usedQuestions = [] }) {
+  const catObj = CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
+  const catLabel = lang === 'th' ? catObj.th : catObj.en;
+  const avoidList = usedQuestions.slice(-8).join(' | ');
+
+  const systemInstruction =
+    lang === 'th'
+      ? 'คุณคือผู้สร้างคำถามเกม Reverse Trivia (ทายสวนกระแส) ตอบกลับเป็น JSON เท่านั้น'
+      : 'You are a Reverse Trivia game host. Return valid JSON only.';
+
+  const prompt =
+    lang === 'th'
+      ? `สร้างคำถาม Reverse Trivia ภาษาไทย 1 ข้อ หมวด "${catLabel}" ระดับความยาก "${difficulty}"
+กติกาของคำถามที่ดี:
+- เป็นคำถามปลายเปิดที่มีคำตอบถูกต้องหลากหลาย (อย่างน้อย 15 คำตอบขึ้นไป) เช่น "ชื่อจังหวัดในภาคอีสาน", "ชื่อประเทศที่ขึ้นต้นด้วยตัว S", "ชื่อเมนูอาหารไทยที่มีคำว่า ผัด"
+- ห้ามซ้ำกับคำถามเหล่านี้: ${avoidList || 'ไม่มี'}
+- ระบุคำตอบยอดฮิตที่คนส่วนใหญ่มักนึกถึงเป็นอันดับแรก 3 คำ (defaultBans) เพื่อใช้เป็นคำต้องห้าม
+
+ส่งกลับเป็น JSON รูปแบบนี้เท่านั้น:
+{
+  "question": "ข้อความคำถามภาษาไทยที่สั้นและเข้าใจง่าย",
+  "hint": "คำใบ้สั้นๆ หรือขอบเขตคำตอบ",
+  "defaultBans": ["คำตอบยอดฮิต1", "คำตอบยอดฮิต2", "คำตอบยอดฮิต3"]
+}`
+      : `Create 1 open-ended Reverse Trivia question in English for category "${catLabel}", difficulty "${difficulty}".
+Rules:
+- Must have at least 15 valid factual answers (e.g., "Name a country in Europe", "Name a Pixar movie").
+- Do NOT repeat: ${avoidList || 'None'}.
+- Provide 3 most obvious/common answers in "defaultBans".
+
+Return JSON ONLY:
+{
+  "question": "Short clear question",
+  "hint": "Brief scope or hint",
+  "defaultBans": ["Obvious1", "Obvious2", "Obvious3"]
+}`;
+
+  const result = await callGemini({ prompt, systemInstruction });
+  if (!result?.question) {
+    throw new Error('ไม่สามารถสร้างคำถามได้ กรุณาลองใหม่');
+  }
+  return {
+    question: String(result.question).trim(),
+    hint: String(result.hint || '').trim(),
+    defaultBans: Array.isArray(result.defaultBans)
+      ? result.defaultBans.map((b) => String(b).trim()).filter(Boolean).slice(0, 4)
+      : [],
+  };
 }
 
-function generateRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
+async function gradeAnswersBatchAI({ question, answers, lang }) {
+  const systemInstruction =
+    lang === 'th'
+      ? 'คุณคือกรรมการตัดสินเกม Reverse Trivia ที่ยุติธรรมและมีอารมณ์ขัน ตอบกลับเป็น JSON เท่านั้น'
+      : 'You are a fair and witty Reverse Trivia judge. Return valid JSON only.';
+
+  const itemsText = answers
+    .map((a) => `- id: "${a.id}", answer: "${a.text.replace(/"/g, "'")}"`)
+    .join('\n');
+
+  const prompt =
+    lang === 'th'
+      ? `คำถาม: "${question}"
+รายชื่อคำตอบที่ต้องตรวจ:
+${itemsText}
+
+เกณฑ์การให้คะแนน Reverse Trivia:
+1. ตรวจว่าคำตอบ "ถูกต้องตามความจริงและตรงคำถาม" หรือไม่ (isValid: true/false) ยืดหยุ่นเรื่องการสะกดผิดเล็กน้อยได้ถ้าสื่อความหมายถูกต้องชัดเจน
+2. ถ้าถูกต้อง ให้คะแนนความแรร์ (rarity) ตั้งแต่ 10 ถึง 100:
+   - 10-35 = คำตอบธรรมดา คนทั่วไปนึกออกง่าย
+   - 36-70 = คำตอบดี ค่อนข้างเฉพาะตัว
+   - 71-100 = คำตอบแรร์มาก ลึก เหนือความคาดหมาย แต่ถูกต้องจริง!
+3. ถ้าไม่ถูกต้อง ให้ isValid: false และ rarity: 0
+4. เขียนคำอธิบายสั้นๆ แซวสนุกๆ ภาษาไทย (reason) ไม่เกิน 1 ประโยค
+
+ตอบกลับเป็น JSON รูปแบบนี้เท่านั้น:
+{
+  "results": {
+    "ID_ผู้เล่น": { "isValid": true, "rarity": 85, "reason": "คำอธิบายสั้นๆ" }
+  }
+}`
+      : `Question: "${question}"
+Answers to grade:
+${itemsText}
+
+Grading rules:
+1. Check if each answer is factually valid for the question (isValid: true/false). Allow minor typos.
+2. If valid, score rarity from 10 to 100 (10 = super common, 100 = ultra rare/obscure but undeniably true).
+3. If invalid, set isValid: false and rarity: 0.
+4. Provide a short witty 1-sentence reason in English.
+
+Return JSON ONLY:
+{
+  "results": {
+    "PLAYER_ID": { "isValid": true, "rarity": 85, "reason": "Short reason" }
+  }
+}`;
+
+  const data = await callGemini({ prompt, systemInstruction });
+  return data?.results || {};
 }
+
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
 
 export default function App() {
-  // Language & UI
   const [lang, setLang] = useState('th');
-  const [activeTab, setActiveTab] = useState('play'); // 'play' | 'vault' | 'leaderboard' | 'history'
-  const [toast, setToast] = useState('');
-  const [loadingMsg, setLoadingMsg] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
-
-  // Account (Player ID + 4-digit PIN)
-  const [currentUser, setCurrentUser] = useState(null);
-  const [allPlayers, setAllPlayers] = useState([]);
-  const [authMode, setAuthMode] = useState('signin'); // 'signin' | 'register'
-  const [handleInput, setHandleInput] = useState('');
-  const [pinInput, setPinInput] = useState('');
-  const [avatarInput, setAvatarInput] = useState('🦊');
+  const [user, setUser] = useState(null);
+  const [authId, setAuthId] = useState('');
+  const [authPin, setAuthPin] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  // Shared Archives
-  const [hallOfFame, setHallOfFame] = useState([]);
-  const [matchHistory, setMatchHistory] = useState([]);
+  // Navigation & Global notices
+  const [view, setView] = useState('home'); // 'home' | 'solo' | 'multi'
+  const [globalNotice, setGlobalNotice] = useState(null); // { type: 'error'|'info'|'success', text }
+  const [pendingRoomCode, setPendingRoomCode] = useState('');
 
-  // Game Mode Selection
-  const [gameMode, setGameMode] = useState('solo'); // 'solo' | 'party' | 'online'
-  const [soloVariant, setSoloVariant] = useState('classic5'); // 'classic5' | 'classic10' | 'survival'
-  const [poolDepth, setPoolDepth] = useState('Balanced'); // 'Wide' | 'Balanced' | 'Narrow'
-  const [totalRounds, setTotalRounds] = useState(5);
-  const [vetoMode, setVetoMode] = useState('simultaneous'); // 'simultaneous' | 'rotating'
-  const [collisionPenalty, setCollisionPenalty] = useState('zero'); // 'zero' | 'half'
+  // Leaderboard
+  const [leaderboard, setLeaderboard] = useState([]);
 
-  // Party Players Setup
-  const [partyRoster, setPartyRoster] = useState([
-    { id: 'p1', name: 'Player 1', avatar: '🦊' },
-    { id: 'p2', name: 'Player 2', avatar: '🐉' },
-  ]);
-  const [newPartyName, setNewPartyName] = useState('');
-
-  // Online Room Setup
-  const [joinCodeInput, setJoinCodeInput] = useState('');
-  const [roomCode, setRoomCode] = useState('');
-  const [roomData, setRoomData] = useState(null);
-  const isHost = roomData && currentUser && roomData.hostId === currentUser.id;
-
-  // Local / Party Game State
-  const [phase, setPhase] = useState('LOBBY'); // 'LOBBY' | 'TOPIC_VETO' | 'ANSWERING' | 'JUDGING' | 'REVEAL' | 'SUMMARY'
-  const [roundNum, setRoundNum] = useState(1);
-  const [askedQuestions, setAskedQuestions] = useState([]);
-  const [usedTopics, setUsedTopics] = useState([]);
-  const [currentQuestion, setCurrentQuestion] = useState(null);
-  const [hintText, setHintText] = useState('');
-  const [hintUsedThisRound, setHintUsedThisRound] = useState(false);
-
-  // Solo Player State
-  const [soloScore, setSoloScore] = useState(0);
-  const [soloStreak, setSoloStreak] = useState(0);
-  const [soloHearts, setSoloHearts] = useState(3);
-  const [soloLifelines, setSoloLifelines] = useState({ reroll: true, hint: true });
+  // Solo state
+  const [gameMode, setGameMode] = useState('classic');
+  const [category, setCategory] = useState('general');
+  const [difficulty, setDifficulty] = useState('medium');
+  const [soloState, setSoloState] = useState(null);
   const [soloAnswer, setSoloAnswer] = useState('');
-  const [soloWager, setSoloWager] = useState(false);
-  const [soloResult, setSoloResult] = useState(null);
-  const [soloHistory, setSoloHistory] = useState([]);
+  const [soloTimer, setSoloTimer] = useState(0);
+  const [soloBusy, setSoloBusy] = useState(false);
 
-  // Party State
-  const [partyPlayersState, setPartyPlayersState] = useState([]);
-  const [topicCandidates, setTopicCandidates] = useState([]);
-  const [partyTurnIndex, setPartyTurnIndex] = useState(0);
-  const [partyCurtainOpen, setPartyCurtainOpen] = useState(false);
-  const [partyVetoVotes, setPartyVetoVotes] = useState({});
-  const [partySubmissions, setPartySubmissions] = useState({});
-  const [partyTempAnswer, setPartyTempAnswer] = useState('');
-  const [partyTempWager, setPartyTempWager] = useState(false);
-  const [roundResults, setRoundResults] = useState([]);
-  const [revealedCount, setRevealedCount] = useState(0);
+  // Multiplayer state
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [roomId, setRoomId] = useState(null);
+  const [room, setRoom] = useState(null);
+  const [mpAnswer, setMpAnswer] = useState('');
+  const [mpBanInput, setMpBanInput] = useState('');
+  const [mpTimeLeft, setMpTimeLeft] = useState(0);
+  const [mpActionBusy, setMpActionBusy] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [hostGradingError, setHostGradingError] = useState('');
 
-  // Online Local Input State
-  const [onlineAnswer, setOnlineAnswer] = useState('');
-  const [onlineWager, setOnlineWager] = useState(false);
-  const [onlineSubmitted, setOnlineSubmitted] = useState(false);
-  const [onlineVetoChoice, setOnlineVetoChoice] = useState(null);
-  const hostProcessingRef = useRef(false);
+  // Host transition guard to prevent race conditions / hanging
+  const phaseLockRef = useRef('');
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 3000);
-  };
+  const t = (th, en) => (lang === 'th' ? th : en);
 
-  // Detect ?room=XXXX from URL on load
+  // Check if current URL is a Vercel preview deployment URL
+  const isVercelPreviewUrl =
+    typeof window !== 'undefined' &&
+    window.location.hostname.includes('vercel.app') &&
+    (window.location.hostname.includes('-git-') ||
+      window.location.hostname.includes('-projects.vercel.app'));
+
+  // 1. On initial mount: read ?room=CODE and restore saved session
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const r = params.get('room');
-    if (r) {
-      setJoinCodeInput(r.toUpperCase().slice(0, 4));
-      setGameMode('online');
-      showToast(lang === 'th' ? `พบลิงก์ห้อง ${r.toUpperCase()} กรุณาเข้าสู่ระบบเพื่อจอย` : `Room ${r.toUpperCase()} detected! Sign in to join.`);
+    const codeFromUrl = (params.get('room') || '').trim().toUpperCase();
+    if (codeFromUrl) {
+      setPendingRoomCode(codeFromUrl);
+      setJoinCodeInput(codeFromUrl);
+    }
+
+    try {
+      const saved = localStorage.getItem('rt_user_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.id) {
+          setUser(parsed);
+        }
+      }
+    } catch {
+      // ignore storage errors
     }
   }, []);
 
-  // Restore last signed-in user from localStorage
-  useEffect(() => {
-    const savedId = localStorage.getItem('rt_player_id');
-    if (savedId) {
-      getDoc(doc(db, 'players', savedId)).then((snap) => {
-        if (snap.exists()) setCurrentUser(snap.data());
-      });
+  // 2. Fetch leaderboard
+  const loadLeaderboard = async () => {
+    try {
+      const q = query(collection(db, 'users'), orderBy('bestScore', 'desc'), limit(10));
+      const snap = await getDocs(q);
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setLeaderboard(list);
+    } catch {
+      // ignore leaderboard errors silently
     }
-  }, []);
+  };
 
-  // Sync Players, Hall of Fame, Match History from Firestore
   useEffect(() => {
-    const unsubPlayers = onSnapshot(collection(db, 'players'), (snap) => {
-      const list = snap.docs.map((d) => d.data());
-      setAllPlayers(list);
-      if (currentUser) {
-        const updated = list.find((p) => p.id === currentUser.id);
-        if (updated) setCurrentUser(updated);
-      }
-    });
-
-    const unsubHof = onSnapshot(
-      query(collection(db, 'hallOfFame'), orderBy('timestamp', 'desc'), limit(25)),
-      (snap) => setHallOfFame(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    );
-
-    const unsubHist = onSnapshot(
-      query(collection(db, 'matchHistory'), orderBy('timestamp', 'desc'), limit(20)),
-      (snap) => setMatchHistory(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    );
-
-    return () => {
-      unsubPlayers();
-      unsubHof();
-      unsubHist();
-    };
-  }, [currentUser?.id]);
-
-  // Subscribe to Active Online Room
-  useEffect(() => {
-    if (!roomCode) return;
-    const unsub = onSnapshot(doc(db, 'rooms', roomCode), (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        setRoomData(data);
-        setPhase(data.phase);
-      }
-    });
-    return () => unsub();
-  }, [roomCode]);
-
-  // Reset local online inputs when round or phase changes
-  useEffect(() => {
-    if (!roomData) return;
-    setOnlineSubmitted(Boolean(roomData.submissions?.[currentUser?.id]));
-    setOnlineVetoChoice(roomData.vetoVotes?.[currentUser?.id] || null);
-    if (roomData.phase === 'ANSWERING' && !roomData.submissions?.[currentUser?.id]) {
-      setOnlineAnswer('');
-      setOnlineWager(false);
+    if (user) {
+      loadLeaderboard();
     }
-  }, [roomData?.roundNum, roomData?.phase, currentUser?.id]);
+  }, [user, view]);
 
-  // Host-Authoritative Triggers in Online Mode
+  // 3. Auto-join room from URL link/QR right after login
   useEffect(() => {
-    if (!isHost || !roomData || hostProcessingRef.current) return;
-    const playerIds = Object.keys(roomData.players || {});
-    if (playerIds.length < 2) return;
-
-    // 1. Check if all veto votes are in
-    if (roomData.phase === 'TOPIC_VETO') {
-      const votes = roomData.vetoVotes || {};
-      const requiredVoters =
-        roomData.vetoMode === 'rotating'
-          ? roomData.vetoVoterIds || playerIds.slice(0, 2)
-          : playerIds;
-
-      if (requiredVoters.length > 0 && requiredVoters.every((id) => votes[id] !== undefined)) {
-        hostProcessingRef.current = true;
-        resolveOnlineVeto(roomData).finally(() => {
-          hostProcessingRef.current = false;
-        });
-      }
+    if (user && pendingRoomCode && !roomId) {
+      const code = pendingRoomCode;
+      setPendingRoomCode('');
+      handleJoinRoom(code);
     }
+  }, [user, pendingRoomCode, roomId]);
 
-    // 2. Check if all answers are submitted
-    if (roomData.phase === 'ANSWERING') {
-      const subs = roomData.submissions || {};
-      if (playerIds.every((id) => subs[id])) {
-        hostProcessingRef.current = true;
-        judgeOnlineBatch(roomData).finally(() => {
-          hostProcessingRef.current = false;
-        });
-      }
-    }
-  }, [isHost, roomData]);
+  // ==========================================
+  // AUTHENTICATION (Player ID + 4-digit PIN)
+  // ==========================================
 
-  // --- AUTH HANDLERS ---
-  const handleAuthSubmit = async (e) => {
+  const handleAuth = async (e) => {
     e.preventDefault();
     setAuthError('');
-    const cleanHandle = handleInput.trim();
-    const idKey = cleanHandle.toLowerCase().replace(/[^a-z0-9ก-๙_-]/g, '');
-    if (!idKey || idKey.length < 2) {
-      setAuthError(lang === 'th' ? 'กรุณาตั้งชื่อ ID อย่างน้อย 2 ตัวอักษร' : 'Player ID must be at least 2 characters.');
+    const cleanId = sanitizeId(authId);
+    const cleanPin = authPin.trim();
+
+    if (cleanId.length < 2) {
+      setAuthError(t('กรุณาตั้งชื่อผู้เล่นอย่างน้อย 2 ตัวอักษร', 'Player ID must be at least 2 characters.'));
       return;
     }
-    if (!/^\d{4}$/.test(pinInput)) {
-      setAuthError(lang === 'th' ? 'รหัส PIN ต้องเป็นตัวเลข 4 หลัก' : 'PIN must be exactly 4 digits.');
+    if (!/^\d{4}$/.test(cleanPin)) {
+      setAuthError(t('กรุณากรอกรหัส PIN ตัวเลข 4 หลัก', 'Please enter a 4-digit numeric PIN.'));
       return;
     }
 
-    setLoadingMsg(lang === 'th' ? 'กำลังเชื่อมต่อบัญชี...' : 'Syncing Player ID...');
+    setAuthLoading(true);
     try {
-      const ref = doc(db, 'players', idKey);
-      const snap = await getDoc(ref);
+      const userRef = doc(db, 'users', cleanId);
+      const snap = await getDoc(userRef);
 
-      if (authMode === 'register') {
-        if (snap.exists()) {
-          setAuthError(lang === 'th' ? 'ชื่อ ID นี้มีคนใช้แล้ว กรุณาเลือกชื่ออื่นหรือกดเข้าสู่ระบบ' : 'Player ID already taken. Choose another or Sign In.');
-          setLoadingMsg('');
+      if (snap.exists()) {
+        const data = snap.data();
+        if (String(data.pin) !== cleanPin) {
+          setAuthError(t('ชื่อนี้มีคนใช้แล้ว หรือรหัส PIN ไม่ถูกต้อง', 'Player ID already exists or PIN is incorrect.'));
+          setAuthLoading(false);
           return;
         }
-        const profile = {
-          id: idKey,
-          handle: cleanHandle,
-          pin: pinInput,
-          avatar: avatarInput,
-          gamesPlayed: 0,
-          wins: 0,
+        const sessionUser = {
+          id: cleanId,
+          displayName: data.displayName || cleanId,
+          bestScore: data.bestScore || 0,
+        };
+        setUser(sessionUser);
+        localStorage.setItem('rt_user_session', JSON.stringify(sessionUser));
+      } else {
+        const newProfile = {
+          displayName: authId.trim().slice(0, 24) || cleanId,
+          pin: cleanPin,
           bestScore: 0,
-          totalPoints: 0,
-          vault: [],
+          gamesPlayed: 0,
           createdAt: Date.now(),
         };
-        await setDoc(ref, cleanFirestoreData(profile));
-        setCurrentUser(profile);
-        localStorage.setItem('rt_player_id', idKey);
-        showToast(lang === 'th' ? `สร้าง ID "${cleanHandle}" สำเร็จ!` : `Created ID "${cleanHandle}"!`);
-      } else {
-        if (!snap.exists()) {
-          setAuthError(lang === 'th' ? 'ไม่พบชื่อ ID นี้ กรุณากดสร้าง ID ใหม่' : 'Player ID not found. Switch to Create New ID.');
-          setLoadingMsg('');
-          return;
-        }
-        const data = snap.data();
-        if (data.pin !== pinInput) {
-          setAuthError(lang === 'th' ? 'รหัส PIN 4 หลักไม่ถูกต้อง' : 'Incorrect 4-digit PIN.');
-          setLoadingMsg('');
-          return;
-        }
-        setCurrentUser(data);
-        localStorage.setItem('rt_player_id', idKey);
-        showToast(lang === 'th' ? `ยินดีต้อนรับกลับ, ${data.handle}!` : `Welcome back, ${data.handle}!`);
+        await setDoc(userRef, newProfile);
+        const sessionUser = {
+          id: cleanId,
+          displayName: newProfile.displayName,
+          bestScore: 0,
+        };
+        setUser(sessionUser);
+        localStorage.setItem('rt_user_session', JSON.stringify(sessionUser));
       }
     } catch (err) {
-      setAuthError(err.message);
+      setAuthError(t(`เชื่อมต่อฐานข้อมูลไม่สำเร็จ: ${err.message}`, `Database error: ${err.message}`));
     } finally {
-      setLoadingMsg('');
+      setAuthLoading(false);
     }
   };
 
   const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('rt_player_id');
-    setPhase('LOBBY');
-    setRoomCode('');
-    setRoomData(null);
+    localStorage.removeItem('rt_user_session');
+    setUser(null);
+    setRoomId(null);
+    setRoom(null);
+    setSoloState(null);
+    setView('home');
   };
 
-  // --- PERSISTENCE HELPERS ---
-  const savePullToVaultAndHof = async (playerId, playerHandle, playerAvatar, questionText, item) => {
-    if (!item.isValid || RARITY_RANK[item.rarityTier] < RARITY_RANK.Rare) return;
-    const entry = {
-      playerId,
-      handle: playerHandle,
-      avatar: playerAvatar,
-      question: questionText,
-      answer: item.answer,
-      rarityTier: item.rarityTier,
-      mindshare: item.estimatedMindsharePercent,
-      points: item.finalPoints,
-      timestamp: Date.now(),
-    };
+  // ==========================================
+  // SOLO MODE LOGIC
+  // ==========================================
 
-    if (RARITY_RANK[item.rarityTier] >= RARITY_RANK.Legendary) {
-      const hofId = `${playerId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-      await setDoc(doc(db, 'hallOfFame', hofId), cleanFirestoreData(entry));
-    }
-
-    const pRef = doc(db, 'players', playerId);
-    const pSnap = await getDoc(pRef);
-    if (pSnap.exists()) {
-      const pData = pSnap.data();
-      const updatedVault = [entry, ...(pData.vault || [])].slice(0, 40);
-      await updateDoc(pRef, { vault: cleanFirestoreData(updatedVault) });
-    }
-  };
-
-  const updatePlayerCareerStats = async (playerId, score, didWin) => {
-    const pRef = doc(db, 'players', playerId);
-    const snap = await getDoc(pRef);
-    if (!snap.exists()) return;
-    const d = snap.data();
-    await updateDoc(pRef, {
-      gamesPlayed: (d.gamesPlayed || 0) + 1,
-      wins: (d.wins || 0) + (didWin ? 1 : 0),
-      bestScore: Math.max(d.bestScore || 0, score),
-      totalPoints: (d.totalPoints || 0) + score,
-    });
-  };
-
-  // --- AI GENERATORS & REFEREES ---
-  const generateTopicsAI = async (activeLang, excludeTopics) => {
-    const sys =
-      activeLang === 'th'
-        ? 'คุณคือผู้สร้างหมวดหมู่เกมทายสวนกระแส (Reverse Trivia) สร้าง 3 หมวดหมู่ที่สนุก หลากหลาย ไม่ซ้ำกับรายการที่เคยใช้ ตอบเป็น JSON เท่านั้น'
-        : 'You are a Reverse Trivia category designer. Generate 3 distinct, fun, open-ended trivia categories avoiding previously used topics. Output strict JSON only.';
-    const prompt = `Previously used topics: ${JSON.stringify(excludeTopics)}.
-Return JSON schema: { "topics": ["Topic 1", "Topic 2", "Topic 3"] }`;
-    const raw = await callGemini({ prompt, systemInstruction: sys });
-    const parsed = parseJsonSafe(raw);
-    return parsed.topics.slice(0, 3);
-  };
-
-  const generateQuestionAI = async (activeLang, depth, prevQuestions, forcedTopic = null) => {
-    const depthRule = {
-      Wide: '1 basic condition with 100+ valid answers (rewards deep obscure digging).',
-      Balanced: '1-2 conditions with 30-80 valid answers.',
-      Narrow: '2-3 stacked conditions with 10-25 valid answers (never narrow to just 1-2 answers).',
-    }[depth];
-
-    const sys =
-      activeLang === 'th'
-        ? `คุณคือพิธีกรเกมโชว์ "ทายสวนกระแส (Reverse Trivia)" สร้างโจทย์ปลายเปิดเป็นภาษาไทยที่อิงบริบทวัฒนธรรมไทย/สากลที่คนไทยคุ้นเคย ระดับความกว้างโจทย์: ${depth} (${depthRule}) พร้อมแอบลิสต์คำตอบยอดฮิตที่คนไทยน่าจะนึกถึงมากที่สุด 3 อันดับแรกใน forbiddenTop3 ห้ามซ้ำโจทย์เดิม ตอบเป็น JSON เท่านั้น`
-        : `You are a witty Reverse Trivia game show host. Generate an open-ended trivia prompt in English for a Global cultural baseline. Pool Depth: ${depth} (${depthRule}). Secretly list the 3 most obvious/popular answers in forbiddenTop3. Never repeat previous questions. Output strict JSON only.`;
-
-    const prompt = `${forcedTopic ? `Required Topic: ${forcedTopic}\n` : ''}Previously asked questions: ${JSON.stringify(prevQuestions)}.
-Return strict JSON:
-{
-  "category": "string",
-  "question": "string",
-  "forbiddenTop3": ["string", "string", "string"]
-}`;
-    const raw = await callGemini({ prompt, systemInstruction: sys });
-    return parseJsonSafe(raw);
-  };
-
-  const generateHintAI = async (activeLang, questionObj) => {
-    const sys =
-      activeLang === 'th'
-        ? 'ให้คำใบ้หมวดย่อยสั้นๆ 1 ประโยคเพื่อช่วยให้ผู้เล่นนึกถึงคำตอบระดับ Rare ได้ โดยไม่เฉลยคำตอบตรงๆ'
-        : 'Give a concise 1-sentence sub-category hint to help the player think of a Rare-tier answer without giving away an exact answer.';
-    const prompt = `Question: "${questionObj.question}". Return JSON: { "hint": "string" }`;
-    const raw = await callGemini({ prompt, systemInstruction: sys });
-    return parseJsonSafe(raw).hint;
-  };
-
-  const judgeSingleAI = async (activeLang, depth, questionObj, answer) => {
-    const sys =
-      activeLang === 'th'
-        ? `คุณคือกรรมการตัดสินเกม "ทายสวนกระแส (Reverse Trivia)" ที่เข้มงวดและยุติธรรม ห้ามใจดีแจกคะแนนเฟ้อ คิดทีละขั้นก่อนตัดสิน:
-1) ตรวจสอบข้อเท็จจริงและเงื่อนไขโจทย์ 100% ถ้าผิด แต่งเรื่อง หรือไม่ตรงเงื่อนไข ให้ isValid: false (0 คะแนน)
-2) ห้ามเติมคำขยายเพื่อโกงความแรร์ เช่น โจทย์ถาม "ชื่อสัตว์" แล้วตอบ "แมวส้มสามขาหน้าปากซอย" ให้ประเมินเป็นแค่ "แมว" (Common)
-3) ประเมิน Mindshare ตามจริงจากมุมมองคนไทย 100 คน เทียบกับขนาด Pool (${depth}) แล้วจัดระดับ:
-   - Invalid (ผิดเงื่อนไข): 0
-   - Common (>40%): 10
-   - Uncommon (20-40%): 30
-   - Rare (8-19%): 55
-   - Epic (2-7%): 80
-   - Legendary (0.5-1.9%): 100
-   - Mythic (<0.5%): 125
-4) ตรวจว่าตรงกับ forbiddenTop3 (${JSON.stringify(questionObj.forbiddenTop3)}) หรือความหมายเดียวกันหรือไม่ ตอบเป็น JSON เท่านั้น`
-        : `You are a strict, anti-sycophancy Reverse Trivia referee. Never inflate scores. Perform step-by-step reasoning:
-1) Fact-check strictly against all prompt constraints. If wrong, fabricated, or rule-breaking, set isValid: false (0 pts).
-2) Reject artificial qualifiers on mundane answers (e.g., "the three-legged orange cat down the street" must be graded as "cat" -> Common).
-3) Estimate realistic mindshare out of 100 average people in a Global baseline relative to Pool Depth (${depth}), mapping strictly to:
-   - Invalid: 0 | Common (>40%): 10 | Uncommon (20-40%): 30 | Rare (8-19%): 55 | Epic (2-7%): 80 | Legendary (0.5-1.9%): 100 | Mythic (<0.5%): 125
-4) Check if the answer matches forbiddenTop3 (${JSON.stringify(questionObj.forbiddenTop3)}) conceptually. Output strict JSON only.`;
-
-    const prompt = `Question: "${questionObj.question}"
-Forbidden Top 3: ${JSON.stringify(questionObj.forbiddenTop3)}
-Player Answer: "${answer}"
-Return strict JSON:
-{
-  "isValid": boolean,
-  "hitForbiddenTop3": boolean,
-  "estimatedMindsharePercent": number,
-  "rarityTier": "Invalid" | "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic",
-  "hostComment": "string (witty 1-sentence host reaction)",
-  "reason": "string (concise explanation of accuracy & rarity)",
-  "funFact": "string (1-2 sentence trivia fact)",
-  "mythicExample": "string (one valid Mythic-tier example)"
-}`;
-    const raw = await callGemini({ prompt, systemInstruction: sys });
-    return parseJsonSafe(raw);
-  };
-
-  const judgeBatchAI = async (activeLang, depth, questionObj, submissionsList) => {
-    const sys =
-      activeLang === 'th'
-        ? `คุณคือกรรมการเกม "ทายสวนกระแส" ประเมินคำตอบของผู้เล่นทุกคนพร้อมกันอย่างเข้มงวดและยุติธรรม (ห้ามแจกคะแนนเฟ้อ)
-กฎสำคัญ:
-1) ตรวจความถูกต้อง 100% ตามเงื่อนไขโจทย์ (Pool Depth: ${depth}) ถ้าผิดให้ isValid: false
-2) ป้องกันการเติมคำขยายโกงความแรร์ (เช่น "แมวส้มหน้าปากซอย" นับเป็น "แมว")
-3) สร้างฟิลด์ canonicalConcept (ชื่อแนวคิดมาตรฐานภาษาอังกฤษตัวพิมพ์เล็ก เช่น "octopus", "bhutan") สำหรับคำตอบที่ถูกต้องทุกข้อ เพื่อตรวจจับการตอบซ้ำเชิงความหมาย (Semantic Collision) แม้ผู้เล่นจะพิมพ์คนละภาษาหรือสะกดต่างกัน
-4) จัดระดับ Rarity ตาม Mindshare ของคนไทย 100 คน: Invalid, Common (>40%), Uncommon (20-40%), Rare (8-19%), Epic (2-7%), Legendary (0.5-1.9%), Mythic (<0.5%) ตอบเป็น JSON เท่านั้น`
-        : `You are a strict Reverse Trivia batch referee. Evaluate all players' submissions simultaneously and consistently without score inflation.
-Rules:
-1) Fact-check strictly against all prompt constraints (Pool Depth: ${depth}). Invalid answers get isValid: false.
-2) Reject artificial qualifiers added to common answers.
-3) Assign a normalized lowercase English "canonicalConcept" (e.g., "octopus", "bhutan") to every valid answer so conceptual duplicates across synonyms/languages are caught.
-4) Assign Rarity Tier based on realistic Global mindshare out of 100 people: Invalid, Common (>40%), Uncommon (20-40%), Rare (8-19%), Epic (2-7%), Legendary (0.5-1.9%), Mythic (<0.5%). Output strict JSON only.`;
-
-    const prompt = `Question: "${questionObj.question}"
-Forbidden Top 3: ${JSON.stringify(questionObj.forbiddenTop3)}
-Submissions: ${JSON.stringify(submissionsList)}
-Return strict JSON:
-{
-  "results": [
-    {
-      "playerId": "string",
-      "isValid": boolean,
-      "canonicalConcept": "string",
-      "hitForbiddenTop3": boolean,
-      "estimatedMindsharePercent": number,
-      "rarityTier": "Invalid" | "Common" | "Uncommon" | "Rare" | "Epic" | "Legendary" | "Mythic",
-      "hostComment": "string",
-      "reason": "string"
-    }
-  ],
-  "funFact": "string",
-  "mythicExample": "string"
-}`;
-    const raw = await callGemini({ prompt, systemInstruction: sys });
-    return parseJsonSafe(raw);
-  };
-
-  // --- SOLO GAME FLOW ---
   const startSoloGame = async () => {
-    setErrorMsg('');
-    const rounds = soloVariant === 'classic5' ? 5 : soloVariant === 'classic10' ? 10 : 99;
-    setTotalRounds(rounds);
-    setRoundNum(1);
-    setSoloScore(0);
-    setSoloStreak(0);
-    setSoloHearts(3);
-    setSoloLifelines({ reroll: true, hint: true });
-    setSoloHistory([]);
-    setAskedQuestions([]);
-    setSoloResult(null);
+    setGlobalNotice(null);
+    setSoloBusy(true);
+    const maxRounds = gameMode === 'survival' ? 99 : 5;
+    const lives = gameMode === 'survival' ? 3 : 99;
+    const timeLimit = gameMode === 'blitz' ? 15 : 0;
+
+    setSoloState({
+      mode: gameMode,
+      round: 1,
+      maxRounds,
+      lives,
+      score: 0,
+      streak: 0,
+      status: 'loading', // 'loading' | 'playing' | 'grading' | 'result' | 'finished'
+      question: null,
+      lastResult: null,
+      history: [],
+      usedQuestions: [],
+      timeLimit,
+    });
+    setView('solo');
     setSoloAnswer('');
-    setSoloWager(false);
-    setHintText('');
-    setHintUsedThisRound(false);
 
-    setLoadingMsg(lang === 'th' ? 'พิธีกรกำลังสุ่มโจทย์แรก...' : 'Host is generating your first prompt...');
     try {
-      const q = await generateQuestionAI(lang, poolDepth, []);
-      setCurrentQuestion(q);
-      setAskedQuestions([q.question]);
-      setPhase('ANSWERING');
+      const qData = await generateQuestionAI({ category, difficulty, lang, usedQuestions: [] });
+      setSoloState((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: 'playing',
+              question: qData,
+              usedQuestions: [qData.question],
+            }
+          : null
+      );
+      if (timeLimit > 0) setSoloTimer(timeLimit);
     } catch (err) {
-      setErrorMsg(err.message);
+      setGlobalNotice({ type: 'error', text: err.message });
+      setView('home');
+      setSoloState(null);
     } finally {
-      setLoadingMsg('');
+      setSoloBusy(false);
     }
   };
 
-  const handleSoloReroll = async () => {
-    if (!soloLifelines.reroll || loadingMsg) return;
-    setLoadingMsg(lang === 'th' ? 'กำลังเปลี่ยนโจทย์ใหม่...' : 'Rerolling question...');
-    try {
-      const q = await generateQuestionAI(lang, poolDepth, askedQuestions);
-      setCurrentQuestion(q);
-      setAskedQuestions((prev) => [...prev, q.question]);
-      setSoloLifelines((prev) => ({ ...prev, reroll: false }));
-      setHintText('');
-      setHintUsedThisRound(false);
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoadingMsg('');
-    }
-  };
-
-  const handleSoloHint = async () => {
-    if (!soloLifelines.hint || loadingMsg || hintUsedThisRound) return;
-    setLoadingMsg(lang === 'th' ? 'กำลังขอคำใบ้หมวดย่อย...' : 'Fetching sub-category hint...');
-    try {
-      const h = await generateHintAI(lang, currentQuestion);
-      setHintText(h);
-      setHintUsedThisRound(true);
-      setSoloLifelines((prev) => ({ ...prev, hint: false }));
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoadingMsg('');
-    }
-  };
-
-  const handleSoloSubmit = async (e) => {
-    e.preventDefault();
-    if (!soloAnswer.trim() || loadingMsg) return;
-    setLoadingMsg(lang === 'th' ? 'กรรมการกำลังเช็กความแรร์...' : 'Referee is evaluating rarity...');
-    setErrorMsg('');
-
-    try {
-      const res = await judgeSingleAI(lang, poolDepth, currentQuestion, soloAnswer.trim());
-      const tier = res.isValid ? res.rarityTier : 'Invalid';
-      let base = RARITY_CONFIG[tier]?.points ?? 0;
-
-      // Streak calculation
-      const qualifiesStreak =
-        res.isValid && !res.hitForbiddenTop3 && RARITY_RANK[tier] >= RARITY_RANK.Rare;
-      const newStreak = qualifiesStreak ? soloStreak + 1 : 0;
-      const mult = getStreakMultiplier(newStreak);
-
-      let pts = Math.round(base * mult);
-      if (hintUsedThisRound) pts = Math.round(pts * 0.8);
-      if (res.hitForbiddenTop3 && res.isValid) pts = Math.floor(pts * 0.5);
-
-      if (soloWager) {
-        if (res.isValid && !res.hitForbiddenTop3 && RARITY_RANK[tier] >= RARITY_RANK.Epic) {
-          pts = pts * 2;
-        } else {
-          pts = 0;
-        }
-      }
-
-      let nextHearts = soloHearts;
-      if (soloVariant === 'survival') {
-        if (!res.isValid || tier === 'Common' || res.hitForbiddenTop3) {
-          nextHearts = Math.max(0, soloHearts - 1);
-        }
-      }
-
-      const fullResult = {
-        ...res,
-        rarityTier: tier,
-        answer: soloAnswer.trim(),
-        question: currentQuestion.question,
-        forbiddenTop3: currentQuestion.forbiddenTop3,
-        basePoints: base,
-        multiplier: mult,
-        wagered: soloWager,
-        finalPoints: pts,
-      };
-
-      setSoloScore((s) => s + pts);
-      setSoloStreak(newStreak);
-      setSoloHearts(nextHearts);
-      setSoloResult(fullResult);
-      setSoloHistory((prev) => [...prev, fullResult]);
-      setPhase('REVEAL');
-
-      if (currentUser) {
-        await savePullToVaultAndHof(
-          currentUser.id,
-          currentUser.handle,
-          currentUser.avatar,
-          currentQuestion.question,
-          fullResult
-        );
-      }
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoadingMsg('');
-    }
-  };
-
-  const handleSoloNext = async () => {
-    const isSurvivalOver = soloVariant === 'survival' && soloHearts <= 0;
-    const isClassicOver = soloVariant !== 'survival' && roundNum >= totalRounds;
-
-    if (isSurvivalOver || isClassicOver) {
-      setPhase('SUMMARY');
-      if (currentUser) {
-        await updatePlayerCareerStats(currentUser.id, soloScore, true);
-      }
+  // Solo Blitz Timer
+  useEffect(() => {
+    if (view !== 'solo' || soloState?.status !== 'playing' || !soloState?.timeLimit) return;
+    if (soloTimer <= 0) {
+      submitSoloAnswer(true);
       return;
     }
+    const id = setTimeout(() => setSoloTimer((prev) => prev - 1), 1000);
+    return () => clearTimeout(id);
+  }, [view, soloState?.status, soloTimer]);
 
-    setLoadingMsg(lang === 'th' ? 'กำลังสร้างโจทย์ข้อถัดไป...' : 'Generating next prompt...');
+  const submitSoloAnswer = async (isTimeout = false) => {
+    if (!soloState || soloState.status !== 'playing' || soloBusy) return;
+    const ans = isTimeout ? '' : soloAnswer.trim();
+    const bannedList = soloState.question?.defaultBans || [];
+
+    setSoloBusy(true);
+    setSoloState((prev) => ({ ...prev, status: 'grading' }));
+
     try {
-      const q = await generateQuestionAI(lang, poolDepth, askedQuestions);
-      setCurrentQuestion(q);
-      setAskedQuestions((prev) => [...prev, q.question]);
-      setRoundNum((r) => r + 1);
-      setSoloAnswer('');
-      setSoloWager(false);
-      setSoloResult(null);
-      setHintText('');
-      setHintUsedThisRound(false);
-      setPhase('ANSWERING');
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoadingMsg('');
-    }
-  };
-
-  // --- PARTY PASS & PLAY FLOW ---
-  const addPartyPlayer = () => {
-    if (!newPartyName.trim() || partyRoster.length >= 6) return;
-    const nextAvatar = AVATARS[partyRoster.length % AVATARS.length];
-    setPartyRoster((prev) => [
-      ...prev,
-      { id: `p${Date.now()}`, name: newPartyName.trim(), avatar: nextAvatar },
-    ]);
-    setNewPartyName('');
-  };
-
-  const startPartyGame = async () => {
-    if (partyRoster.length < 2) return;
-    const initialPlayers = partyRoster.map((p) => ({ ...p, score: 0, streak: 0 }));
-    setPartyPlayersState(initialPlayers);
-    setRoundNum(1);
-    setAskedQuestions([]);
-    setUsedTopics([]);
-    await beginPartyRound(1, initialPlayers, []);
-  };
-
-  const beginPartyRound = async (rNum, playersList, prevTopics) => {
-    setLoadingMsg(lang === 'th' ? 'กำลังสุ่ม 3 หัวข้อให้แบน...' : 'Generating 3 topics for Veto...');
-    setErrorMsg('');
-    try {
-      const topics = await generateTopicsAI(lang, prevTopics);
-      setTopicCandidates(topics);
-      setUsedTopics((prev) => [...prev, ...topics]);
-      setPartyVetoVotes({});
-      setPartySubmissions({});
-      setPartyTurnIndex(0);
-      setPartyCurtainOpen(false);
-      setPhase('TOPIC_VETO');
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoadingMsg('');
-    }
-  };
-
-  const getPartyVetoVoters = (playersList) => {
-    if (vetoMode === 'rotating') {
-      if (playersList.length === 2) return playersList;
-      const sorted = [...playersList].sort((a, b) => a.score - b.score);
-      return sorted.slice(0, 2);
-    }
-    return playersList;
-  };
-
-  const handlePartyVetoPick = async (topicIdx) => {
-    const voters = getPartyVetoVoters(partyPlayersState);
-    const activeVoter = voters[partyTurnIndex];
-    const nextVotes = { ...partyVetoVotes, [activeVoter.id]: topicIdx };
-    setPartyVetoVotes(nextVotes);
-    setPartyCurtainOpen(false);
-
-    if (partyTurnIndex + 1 < voters.length) {
-      setPartyTurnIndex(partyTurnIndex + 1);
-      return;
-    }
-
-    // Tally bans
-    const counts = [0, 0, 0];
-    Object.values(nextVotes).forEach((idx) => {
-      if (counts[idx] !== undefined) counts[idx] += 1;
-    });
-    const minVotes = Math.min(...counts);
-    const survivingIndices = counts
-      .map((c, idx) => (c === minVotes ? idx : -1))
-      .filter((idx) => idx !== -1);
-    const chosenIdx = survivingIndices[Math.floor(Math.random() * survivingIndices.length)];
-    const chosenTopic = topicCandidates[chosenIdx];
-
-    setLoadingMsg(
-      lang === 'th'
-        ? `หัวข้อ "${chosenTopic}" ชนะโหวต! กำลังสร้างโจทย์...`
-        : `Topic "${chosenTopic}" survived! Crafting prompt...`
-    );
-    try {
-      const q = await generateQuestionAI(lang, poolDepth, askedQuestions, chosenTopic);
-      setCurrentQuestion(q);
-      setAskedQuestions((prev) => [...prev, q.question]);
-      setPartyTurnIndex(0);
-      setPartyCurtainOpen(false);
-      setPartyTempAnswer('');
-      setPartyTempWager(false);
-      setPhase('ANSWERING');
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoadingMsg('');
-    }
-  };
-
-  const handlePartyAnswerSubmit = async (e) => {
-    e.preventDefault();
-    if (!partyTempAnswer.trim()) return;
-    const activePlayer = partyPlayersState[partyTurnIndex];
-    const nextSubs = {
-      ...partySubmissions,
-      [activePlayer.id]: {
-        playerId: activePlayer.id,
-        name: activePlayer.name,
-        answer: partyTempAnswer.trim(),
-        wager: partyTempWager,
-      },
-    };
-    setPartySubmissions(nextSubs);
-    setPartyTempAnswer('');
-    setPartyTempWager(false);
-    setPartyCurtainOpen(false);
-
-    if (partyTurnIndex + 1 < partyPlayersState.length) {
-      setPartyTurnIndex(partyTurnIndex + 1);
-      return;
-    }
-
-    // All players answered -> Batch Judge
-    setPhase('JUDGING');
-    setLoadingMsg(lang === 'th' ? 'AI กำลังตรวจคำตอบทุกคนพร้อมกัน...' : 'AI Referee judging all answers simultaneously...');
-    try {
-      const subList = Object.values(nextSubs).map((s) => ({
-        playerId: s.playerId,
-        name: s.name,
-        answer: s.answer,
-      }));
-      const batch = await judgeBatchAI(lang, poolDepth, currentQuestion, subList);
-      const processed = computeMultiplayerScores(partyPlayersState, nextSubs, batch, collisionPenalty);
-
-      const updatedPlayers = partyPlayersState.map((p) => {
-        const r = processed.find((item) => item.playerId === p.id);
-        return {
-          ...p,
-          score: p.score + (r?.finalPoints || 0),
-          streak: r?.newStreak || 0,
+      let resultObj;
+      if (!ans) {
+        resultObj = {
+          answer: t('(หมดเวลา/ไม่ได้ตอบ)', '(Timed out)'),
+          status: 'timeout',
+          points: 0,
+          rarity: 0,
+          reason: t('หมดเวลาก่อนส่งคำตอบ!', 'Time ran out before submitting!'),
         };
-      });
+      } else {
+        const normAns = normalizeText(ans);
+        const hitBan = bannedList.find((b) => normalizeText(b) === normAns);
+        if (hitBan) {
+          resultObj = {
+            answer: ans,
+            status: 'banned',
+            points: 0,
+            rarity: 0,
+            reason: t(`โดนคำต้องห้าม "${hitBan}"! คิดให้ลึกกว่านี้อีกนิด`, `Hit banned word "${hitBan}"!`),
+          };
+        } else {
+          const graded = await gradeAnswersBatchAI({
+            question: soloState.question.question,
+            answers: [{ id: 'solo', text: ans }],
+            lang,
+          });
+          const g = graded?.solo || { isValid: false, rarity: 0, reason: t('ตรวจคำตอบไม่สำเร็จ', 'Could not grade') };
+          const pts = g.isValid ? Math.max(10, Math.min(100, Number(g.rarity) || 50)) : 0;
+          resultObj = {
+            answer: ans,
+            status: g.isValid ? 'valid' : 'invalid',
+            points: pts,
+            rarity: pts,
+            reason: g.reason || '',
+          };
+        }
+      }
 
-      setPartyPlayersState(updatedPlayers);
-      setRoundResults(processed.map((r) => ({ ...r, funFact: batch.funFact, mythicExample: batch.mythicExample })));
-      setRevealedCount(1);
-      setPhase('REVEAL');
+      const isGood = resultObj.status === 'valid';
+      const newLives = isGood ? soloState.lives : soloState.lives - 1;
+      const newScore = soloState.score + resultObj.points;
+      const newStreak = isGood ? soloState.streak + 1 : 0;
+
+      setSoloState((prev) => ({
+        ...prev,
+        status: 'result',
+        score: newScore,
+        lives: newLives,
+        streak: newStreak,
+        lastResult: resultObj,
+        history: [...prev.history, { question: prev.question.question, ...resultObj }],
+      }));
     } catch (err) {
-      setErrorMsg(err.message);
+      setGlobalNotice({ type: 'error', text: err.message });
+      setSoloState((prev) => ({ ...prev, status: 'playing' }));
     } finally {
-      setLoadingMsg('');
+      setSoloBusy(false);
     }
   };
 
-  // --- ONLINE ROOM SYNC FLOW ---
-  const createOnlineRoom = async () => {
-    if (!currentUser) return;
-    const code = generateRoomCode();
-    const initialRoom = {
-      code,
-      hostId: currentUser.id,
-      lang,
-      poolDepth,
-      totalRounds,
-      vetoMode,
-      collisionPenalty,
-      phase: 'LOBBY',
-      roundNum: 1,
-      players: {
-        [currentUser.id]: {
-          id: currentUser.id,
-          handle: currentUser.handle,
-          avatar: currentUser.avatar,
-          score: 0,
-          streak: 0,
+  const nextSoloRound = async () => {
+    if (!soloState || soloBusy) return;
+    const isGameOver =
+      (soloState.mode === 'survival' && soloState.lives <= 0) ||
+      (soloState.mode !== 'survival' && soloState.round >= soloState.maxRounds);
+
+    if (isGameOver) {
+      setSoloState((prev) => ({ ...prev, status: 'finished' }));
+      // Save best score to Firestore
+      if (user) {
+        try {
+          const userRef = doc(db, 'users', user.id);
+          const snap = await getDoc(userRef);
+          const currentBest = snap.exists() ? snap.data().bestScore || 0 : 0;
+          const nextBest = Math.max(currentBest, soloState.score);
+          await updateDoc(userRef, {
+            bestScore: nextBest,
+            gamesPlayed: (snap.exists() ? snap.data().gamesPlayed || 0 : 0) + 1,
+          });
+          setUser((u) => {
+            const updated = { ...u, bestScore: nextBest };
+            localStorage.setItem('rt_user_session', JSON.stringify(updated));
+            return updated;
+          });
+        } catch {
+          // ignore
+        }
+      }
+      return;
+    }
+
+    setSoloBusy(true);
+    setSoloAnswer('');
+    setSoloState((prev) => ({ ...prev, round: prev.round + 1, status: 'loading', lastResult: null }));
+    try {
+      const qData = await generateQuestionAI({
+        category,
+        difficulty,
+        lang,
+        usedQuestions: soloState.usedQuestions,
+      });
+      setSoloState((prev) => ({
+        ...prev,
+        status: 'playing',
+        question: qData,
+        usedQuestions: [...prev.usedQuestions, qData.question],
+      }));
+      if (soloState.timeLimit > 0) setSoloTimer(soloState.timeLimit);
+    } catch (err) {
+      setGlobalNotice({ type: 'error', text: err.message });
+      setSoloState((prev) => ({ ...prev, status: 'finished' }));
+    } finally {
+      setSoloBusy(false);
+    }
+  };
+
+  // ==========================================
+  // MULTIPLAYER: CREATE / JOIN / LEAVE / BAN
+  // ==========================================
+
+  const clearRoomUrlParam = () => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('room');
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCreateRoom = async () => {
+    if (!user || mpActionBusy) return;
+    setGlobalNotice(null);
+    setMpActionBusy(true);
+    try {
+      const code = generateRoomCode();
+      const roomRef = doc(db, 'rooms', code);
+      const initialRoom = {
+        code,
+        hostId: user.id,
+        status: 'lobby', // 'lobby' | 'generating' | 'banning' | 'answering' | 'grading' | 'results' | 'finished'
+        category,
+        difficulty,
+        totalRounds: 5,
+        answerTime: 30,
+        banTime: 20,
+        enableBanPhase: true,
+        round: 0,
+        phaseEndsAt: 0,
+        question: null,
+        usedQuestions: [],
+        bannedWords: [],
+        players: {
+          [user.id]: {
+            id: user.id,
+            name: user.displayName || user.id,
+            score: 0,
+            ready: true,
+            joinedAt: Date.now(),
+          },
         },
-      },
-      usedTopics: [],
-      askedQuestions: [],
-      topicCandidates: [],
-      vetoVotes: {},
-      vetoVoterIds: [],
-      currentQuestion: null,
-      submissions: {},
-      roundResults: [],
-      updatedAt: Date.now(),
-    };
-    await setDoc(doc(db, 'rooms', code), cleanFirestoreData(initialRoom));
-    setRoomCode(code);
-  };
-
-  const joinOnlineRoom = async () => {
-    if (!currentUser || joinCodeInput.trim().length !== 4) return;
-    const code = joinCodeInput.trim().toUpperCase();
-    const ref = doc(db, 'rooms', code);
-    const snap = await getDoc(ref);
-    if (!snap.exists()) {
-      setErrorMsg(lang === 'th' ? `ไม่พบห้องรหัส ${code}` : `Room ${code} not found.`);
-      return;
-    }
-    const data = snap.data();
-    if (Object.keys(data.players || {}).length >= 6 && !data.players[currentUser.id]) {
-      setErrorMsg(lang === 'th' ? 'ห้องเต็มแล้ว (สูงสุด 6 คน)' : 'Room is full (max 6 players).');
-      return;
-    }
-    await updateDoc(ref, {
-      [`players.${currentUser.id}`]: {
-        id: currentUser.id,
-        handle: currentUser.handle,
-        avatar: currentUser.avatar,
-        score: data.players?.[currentUser.id]?.score || 0,
-        streak: data.players?.[currentUser.id]?.streak || 0,
-      },
-    });
-    setRoomCode(code);
-    setErrorMsg('');
-  };
-
-  const startOnlineMatch = async () => {
-    if (!isHost || !roomData) return;
-    const pList = Object.values(roomData.players || {});
-    if (pList.length < 2) return;
-    setLoadingMsg(lang === 'th' ? 'กำลังสุ่มหัวข้อรอบที่ 1...' : 'Generating Round 1 topics...');
-    try {
-      const topics = await generateTopicsAI(roomData.lang, []);
-      const voters =
-        roomData.vetoMode === 'rotating'
-          ? [...pList].sort((a, b) => a.score - b.score).slice(0, 2).map((p) => p.id)
-          : pList.map((p) => p.id);
-
-      await updateDoc(doc(db, 'rooms', roomCode), {
-        phase: 'TOPIC_VETO',
-        roundNum: 1,
-        topicCandidates: topics,
-        usedTopics: topics,
-        vetoVotes: {},
-        vetoVoterIds: voters,
+        bannedIds: [],
+        bans: {},
         submissions: {},
-        roundResults: [],
-      });
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoadingMsg('');
-    }
-  };
-
-  const submitOnlineVeto = async (idx) => {
-    if (!roomData || !currentUser || onlineVetoChoice !== null) return;
-    setOnlineVetoChoice(idx);
-    await updateDoc(doc(db, 'rooms', roomCode), {
-      [`vetoVotes.${currentUser.id}`]: idx,
-    });
-  };
-
-  const resolveOnlineVeto = async (latestRoom) => {
-    const counts = [0, 0, 0];
-    Object.values(latestRoom.vetoVotes || {}).forEach((idx) => {
-      if (counts[idx] !== undefined) counts[idx] += 1;
-    });
-    const minVotes = Math.min(...counts);
-    const surviving = counts.map((c, idx) => (c === minVotes ? idx : -1)).filter((i) => i !== -1);
-    const chosenTopic = latestRoom.topicCandidates[surviving[Math.floor(Math.random() * surviving.length)]];
-
-    const q = await generateQuestionAI(
-      latestRoom.lang,
-      latestRoom.poolDepth,
-      latestRoom.askedQuestions || [],
-      chosenTopic
-    );
-    await updateDoc(doc(db, 'rooms', latestRoom.code), {
-      phase: 'ANSWERING',
-      currentQuestion: q,
-      askedQuestions: [...(latestRoom.askedQuestions || []), q.question],
-      submissions: {},
-    });
-  };
-
-  const submitOnlineAnswer = async (e) => {
-    e.preventDefault();
-    if (!onlineAnswer.trim() || onlineSubmitted || !currentUser) return;
-    setOnlineSubmitted(true);
-    await updateDoc(doc(db, 'rooms', roomCode), {
-      [`submissions.${currentUser.id}`]: {
-        playerId: currentUser.id,
-        name: currentUser.handle,
-        answer: onlineAnswer.trim(),
-        wager: onlineWager,
-      },
-    });
-  };
-
-  const judgeOnlineBatch = async (latestRoom) => {
-    await updateDoc(doc(db, 'rooms', latestRoom.code), { phase: 'JUDGING' });
-    const pList = Object.values(latestRoom.players || {});
-    const subs = latestRoom.submissions || {};
-    const subList = Object.values(subs).map((s) => ({
-      playerId: s.playerId,
-      name: s.name,
-      answer: s.answer,
-    }));
-
-    const batch = await judgeBatchAI(latestRoom.lang, latestRoom.poolDepth, latestRoom.currentQuestion, subList);
-    const processed = computeMultiplayerScores(pList, subs, batch, latestRoom.collisionPenalty);
-
-    const updatedPlayersMap = { ...latestRoom.players };
-    for (const r of processed) {
-      if (updatedPlayersMap[r.playerId]) {
-        updatedPlayersMap[r.playerId] = {
-          ...updatedPlayersMap[r.playerId],
-          score: (updatedPlayersMap[r.playerId].score || 0) + r.finalPoints,
-          streak: r.newStreak,
-        };
-      }
-      const pObj = latestRoom.players[r.playerId];
-      if (pObj) {
-        await savePullToVaultAndHof(
-          r.playerId,
-          pObj.handle,
-          pObj.avatar,
-          latestRoom.currentQuestion.question,
-          r
-        );
-      }
-    }
-
-    await updateDoc(doc(db, 'rooms', latestRoom.code), {
-      phase: 'REVEAL',
-      players: cleanFirestoreData(updatedPlayersMap),
-      roundResults: cleanFirestoreData(
-        processed.map((r) => ({ ...r, funFact: batch.funFact, mythicExample: batch.mythicExample }))
-      ),
-    });
-  };
-
-  const advanceOnlineRound = async () => {
-    if (!isHost || !roomData) return;
-    const pList = Object.values(roomData.players || {});
-
-    if (roomData.roundNum >= roomData.totalRounds) {
-      const sorted = [...pList].sort((a, b) => b.score - a.score);
-      const topScore = sorted[0]?.score || 0;
-      for (const p of sorted) {
-        await updatePlayerCareerStats(p.id, p.score, p.score === topScore && topScore > 0);
-      }
-      await setDoc(doc(db, 'matchHistory', `${roomCode}_${Date.now()}`), cleanFirestoreData({
-        roomCode,
-        mode: 'Online',
-        players: sorted.map((p) => ({ handle: p.handle, avatar: p.avatar, score: p.score })),
-        timestamp: Date.now(),
-      }));
-      await updateDoc(doc(db, 'rooms', roomCode), { phase: 'SUMMARY' });
-      return;
-    }
-
-    setLoadingMsg(lang === 'th' ? 'กำลังสุ่มหัวข้อรอบถัดไป...' : 'Generating next round topics...');
-    try {
-      const topics = await generateTopicsAI(roomData.lang, roomData.usedTopics || []);
-      const voters =
-        roomData.vetoMode === 'rotating'
-          ? [...pList].sort((a, b) => a.score - b.score).slice(0, 2).map((p) => p.id)
-          : pList.map((p) => p.id);
-
-      await updateDoc(doc(db, 'rooms', roomCode), {
-        phase: 'TOPIC_VETO',
-        roundNum: roomData.roundNum + 1,
-        topicCandidates: topics,
-        usedTopics: [...(roomData.usedTopics || []), ...topics],
-        vetoVotes: {},
-        vetoVoterIds: voters,
-        submissions: {},
-        roundResults: [],
-      });
-    } catch (err) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoadingMsg('');
-    }
-  };
-
-  // --- SHARED MULTIPLAYER SCORING & SEMANTIC COLLISION ---
-  function computeMultiplayerScores(playersList, subsMap, batchResponse, penaltyMode) {
-    const rawResults = batchResponse.results || [];
-    const conceptCounts = {};
-    rawResults.forEach((r) => {
-      if (r.isValid && r.canonicalConcept) {
-        const key = r.canonicalConcept.trim().toLowerCase();
-        conceptCounts[key] = (conceptCounts[key] || 0) + 1;
-      }
-    });
-
-    return playersList.map((p) => {
-      const sub = subsMap[p.id] || { answer: '', wager: false };
-      const res = rawResults.find((item) => item.playerId === p.id) || {
-        isValid: false,
-        rarityTier: 'Invalid',
-        estimatedMindsharePercent: 100,
-        hitForbiddenTop3: false,
-        hostComment: 'No valid evaluation.',
-        reason: 'Could not evaluate.',
+        roundResults: null,
+        createdAt: Date.now(),
       };
+      await setDoc(roomRef, initialRoom);
+      phaseLockRef.current = '';
+      setRoomId(code);
+      setView('multi');
+    } catch (err) {
+      setGlobalNotice({ type: 'error', text: t(`สร้างห้องไม่สำเร็จ: ${err.message}`, `Failed to create room: ${err.message}`) });
+    } finally {
+      setMpActionBusy(false);
+    }
+  };
 
-      const tier = res.isValid ? res.rarityTier : 'Invalid';
-      const conceptKey = (res.canonicalConcept || '').trim().toLowerCase();
-      const isCollision = res.isValid && conceptKey && (conceptCounts[conceptKey] || 0) > 1;
+  const handleJoinRoom = async (rawCode) => {
+    const code = String(rawCode || joinCodeInput || '').trim().toUpperCase();
+    if (!user || !code) {
+      setGlobalNotice({ type: 'error', text: t('กรุณากรอกรหัสห้อง 6 หลัก', 'Please enter a 6-character room code.') });
+      return;
+    }
 
-      const qualifiesStreak =
-        res.isValid && !res.hitForbiddenTop3 && !isCollision && RARITY_RANK[tier] >= RARITY_RANK.Rare;
-      const newStreak = qualifiesStreak ? (p.streak || 0) + 1 : 0;
-      const mult = getStreakMultiplier(newStreak);
+    setGlobalNotice(null);
+    setMpActionBusy(true);
+    try {
+      const roomRef = doc(db, 'rooms', code);
+      const snap = await getDoc(roomRef);
 
-      let pts = Math.round((RARITY_CONFIG[tier]?.points ?? 0) * mult);
-      if (res.hitForbiddenTop3 && res.isValid) pts = Math.floor(pts * 0.5);
-
-      if (isCollision) {
-        pts = penaltyMode === 'zero' ? 0 : Math.floor(pts * 0.5);
+      if (!snap.exists()) {
+        clearRoomUrlParam();
+        setGlobalNotice({ type: 'error', text: t(`ไม่พบห้องรหัส "${code}"`, `Room "${code}" not found.`) });
+        setMpActionBusy(false);
+        return;
       }
 
-      if (sub.wager) {
-        if (res.isValid && !res.hitForbiddenTop3 && !isCollision && RARITY_RANK[tier] >= RARITY_RANK.Epic) {
-          pts = pts * 2;
-        } else {
-          pts = 0;
+      const data = snap.data();
+      if (Array.isArray(data.bannedIds) && data.bannedIds.includes(user.id)) {
+        clearRoomUrlParam();
+        setGlobalNotice({
+          type: 'error',
+          text: t('คุณถูกแบนจากห้องนี้ ไม่สามารถเข้าร่วมได้จนกว่าหัวห้องจะปลดแบน', 'You are banned from this room.'),
+        });
+        setMpActionBusy(false);
+        return;
+      }
+
+      if (!data.players?.[user.id]) {
+        await updateDoc(roomRef, {
+          [`players.${user.id}`]: {
+            id: user.id,
+            name: user.displayName || user.id,
+            score: 0,
+            ready: false,
+            joinedAt: Date.now(),
+          },
+        });
+      }
+
+      phaseLockRef.current = '';
+      setRoomId(code);
+      setView('multi');
+    } catch (err) {
+      setGlobalNotice({ type: 'error', text: t(`เข้าห้องไม่สำเร็จ: ${err.message}`, `Failed to join room: ${err.message}`) });
+    } finally {
+      setMpActionBusy(false);
+    }
+  };
+
+  const handleLeaveRoom = async () => {
+    if (!roomId || !user) {
+      setRoomId(null);
+      setRoom(null);
+      setView('home');
+      return;
+    }
+
+    const currentRoom = room;
+    const currentId = roomId;
+    setRoomId(null);
+    setRoom(null);
+    setView('home');
+    clearRoomUrlParam();
+
+    try {
+      const roomRef = doc(db, 'rooms', currentId);
+      const updates = {
+        [`players.${user.id}`]: deleteField(),
+        [`submissions.${user.id}`]: deleteField(),
+        [`bans.${user.id}`]: deleteField(),
+      };
+      // Transfer host if leaving player was host
+      if (currentRoom?.hostId === user.id && currentRoom?.players) {
+        const others = Object.keys(currentRoom.players).filter((pid) => pid !== user.id);
+        if (others.length > 0) {
+          updates.hostId = others[0];
         }
       }
-
-      return {
-        ...res,
-        playerId: p.id,
-        playerName: p.handle || p.name,
-        playerAvatar: p.avatar,
-        answer: sub.answer,
-        wagered: sub.wager,
-        rarityTier: tier,
-        isCollision,
-        multiplier: mult,
-        newStreak,
-        finalPoints: pts,
-      };
-    });
-  }
-
-  // --- SHARE HELPERS ---
-  const shareInvite = async () => {
-    const baseUrl = window.location.origin;
-    const link = roomCode ? `${baseUrl}/?room=${roomCode}` : baseUrl;
-    const text = roomCode
-      ? lang === 'th'
-        ? `มาแข่งเกม "ทายสวนกระแส (Reverse Trivia)" กัน!\nลิงก์: ${link}\nรหัสห้อง (Room Code): ${roomCode}`
-        : `Join my Reverse Trivia room!\nLink: ${link}\nRoom Code: ${roomCode}`
-      : lang === 'th'
-      ? `ลองเล่นเกม "ทายสวนกระแส (Reverse Trivia)" ตอบให้ถูกแต่ห้ามซ้ำคนอื่น!\n${link}`
-      : `Play Reverse Trivia — be right, be obscure!\n${link}`;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: 'Reverse Trivia', text, url: link });
-        return;
-      } catch {}
+      await updateDoc(roomRef, updates);
+    } catch {
+      // ignore cleanup errors
     }
-    await navigator.clipboard.writeText(text);
-    showToast(lang === 'th' ? 'คัดลอกลิงก์ชวนเพื่อนแล้ว!' : 'Invite link copied to clipboard!');
   };
 
-  // --- RENDER: SIGN-IN / REGISTER GATE ---
-  if (!currentUser) {
+  // Atomic Kick & Ban (clears player from players, bans, and submissions so rounds NEVER hang)
+  const handleKickPlayer = async (targetId) => {
+    if (!roomId || !room || room.hostId !== user?.id || targetId === user.id) return;
+    try {
+      await updateDoc(doc(db, 'rooms', roomId), {
+        [`players.${targetId}`]: deleteField(),
+        [`submissions.${targetId}`]: deleteField(),
+        [`bans.${targetId}`]: deleteField(),
+      });
+    } catch (err) {
+      setGlobalNotice({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleBanPlayer = async (targetId) => {
+    if (!roomId || !room || room.hostId !== user?.id || targetId === user.id) return;
+    try {
+      await updateDoc(doc(db, 'rooms', roomId), {
+        bannedIds: arrayUnion(targetId),
+        [`players.${targetId}`]: deleteField(),
+        [`submissions.${targetId}`]: deleteField(),
+        [`bans.${targetId}`]: deleteField(),
+      });
+    } catch (err) {
+      setGlobalNotice({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleUnbanPlayer = async (targetId) => {
+    if (!roomId || !room || room.hostId !== user?.id) return;
+    try {
+      await updateDoc(doc(db, 'rooms', roomId), {
+        bannedIds: arrayRemove(targetId),
+      });
+    } catch (err) {
+      setGlobalNotice({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleToggleReady = async () => {
+    if (!roomId || !room || !user) return;
+    const current = Boolean(room.players?.[user.id]?.ready);
+    try {
+      await updateDoc(doc(db, 'rooms', roomId), {
+        [`players.${user.id}.ready`]: !current,
+      });
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleUpdateRoomSetting = async (patch) => {
+    if (!roomId || !room || room.hostId !== user?.id) return;
+    try {
+      await updateDoc(doc(db, 'rooms', roomId), patch);
+    } catch {
+      // ignore
+    }
+  };
+
+  // ==========================================
+  // MULTIPLAYER REALTIME LISTENER & BAN DETECTION
+  // ==========================================
+
+  useEffect(() => {
+    if (!roomId || !user) return;
+    const roomRef = doc(db, 'rooms', roomId);
+
+    const unsub = onSnapshot(
+      roomRef,
+      (snap) => {
+        if (!snap.exists()) {
+          setRoomId(null);
+          setRoom(null);
+          setView('home');
+          clearRoomUrlParam();
+          setGlobalNotice({ type: 'error', text: t('ห้องนี้ถูกปิดไปแล้ว', 'This room no longer exists.') });
+          return;
+        }
+
+        const data = snap.data();
+
+        // Immediate clean exit if banned
+        if (Array.isArray(data.bannedIds) && data.bannedIds.includes(user.id)) {
+          setRoomId(null);
+          setRoom(null);
+          setView('home');
+          clearRoomUrlParam();
+          setGlobalNotice({
+            type: 'error',
+            text: t('คุณถูกแบนออกจากห้องนี้โดยหัวห้อง', 'You were banned from this room by the host.'),
+          });
+          return;
+        }
+
+        // Immediate clean exit if kicked
+        if (!data.players || !data.players[user.id]) {
+          setRoomId(null);
+          setRoom(null);
+          setView('home');
+          clearRoomUrlParam();
+          setGlobalNotice({
+            type: 'info',
+            text: t('คุณถูกเชิญออกจากห้องนี้', 'You were removed from the room.'),
+          });
+          return;
+        }
+
+        setRoom(data);
+      },
+      (err) => {
+        setGlobalNotice({ type: 'error', text: err.message });
+      }
+    );
+
+    return () => unsub();
+  }, [roomId, user]);
+
+  // Clear local inputs when round or status changes
+  useEffect(() => {
+    setMpAnswer('');
+    setMpBanInput('');
+    setHostGradingError('');
+  }, [room?.round, room?.status]);
+
+  // Live countdown ticker synced to room.phaseEndsAt
+  useEffect(() => {
+    if (!room || (room.status !== 'banning' && room.status !== 'answering')) {
+      setMpTimeLeft(0);
+      return;
+    }
+
+    const updateTick = () => {
+      const remaining = Math.max(0, Math.ceil(((room.phaseEndsAt || 0) - Date.now()) / 1000));
+      setMpTimeLeft(remaining);
+    };
+
+    updateTick();
+    const timer = setInterval(updateTick, 500);
+    return () => clearInterval(timer);
+  }, [room?.status, room?.phaseEndsAt]);
+
+  // ==========================================
+  // MULTIPLAYER HOST STATE MACHINE (ZERO HANG)
+  // ==========================================
+
+  const isHost = Boolean(room && user && room.hostId === user.id);
+  const activePlayerIds = room?.players ? Object.keys(room.players) : [];
+
+  // Host starts a new round (generates question -> enters banning OR answering)
+  const hostStartRound = async (nextRoundNumber, resetScores = false) => {
+    if (!roomId || !room || !isHost) return;
+    const lockKey = `gen-${nextRoundNumber}-${resetScores ? 'reset' : 'next'}`;
+    if (phaseLockRef.current === lockKey) return;
+    phaseLockRef.current = lockKey;
+
+    setHostGradingError('');
+    const roomRef = doc(db, 'rooms', roomId);
+
+    try {
+      const prepUpdates = {
+        status: 'generating',
+        round: nextRoundNumber,
+        bans: {},
+        submissions: {},
+        roundResults: null,
+        bannedWords: [],
+      };
+      if (resetScores && room.players) {
+        Object.keys(room.players).forEach((pid) => {
+          prepUpdates[`players.${pid}.score`] = 0;
+        });
+        prepUpdates.usedQuestions = [];
+      }
+      await updateDoc(roomRef, prepUpdates);
+
+      const used = resetScores ? [] : room.usedQuestions || [];
+      const qData = await generateQuestionAI({
+        category: room.category || 'general',
+        difficulty: room.difficulty || 'medium',
+        lang,
+        usedQuestions: used,
+      });
+
+      if (room.enableBanPhase) {
+        await updateDoc(roomRef, {
+          status: 'banning',
+          question: qData,
+          usedQuestions: [...used, qData.question],
+          bannedWords: qData.defaultBans || [],
+          phaseEndsAt: Date.now() + (room.banTime || 20) * 1000,
+        });
+      } else {
+        await updateDoc(roomRef, {
+          status: 'answering',
+          question: qData,
+          usedQuestions: [...used, qData.question],
+          bannedWords: qData.defaultBans || [],
+          phaseEndsAt: Date.now() + (room.answerTime || 30) * 1000,
+        });
+      }
+    } catch (err) {
+      phaseLockRef.current = '';
+      setHostGradingError(err.message);
+      await updateDoc(roomRef, { status: 'lobby' }).catch(() => {});
+    }
+  };
+
+  // Transition: Banning -> Answering
+  const hostAdvanceToAnswering = async () => {
+    if (!roomId || !room || !isHost || room.status !== 'banning') return;
+    const lockKey = `ban-to-ans-${room.round}`;
+    if (phaseLockRef.current === lockKey) return;
+    phaseLockRef.current = lockKey;
+
+    try {
+      const defaultBans = room.question?.defaultBans || [];
+      const playerBans = Object.values(room.bans || {})
+        .map((b) => String(b?.word || '').trim())
+        .filter(Boolean);
+
+      // Deduplicate case-insensitively
+      const seen = new Set();
+      const mergedBans = [];
+      [...defaultBans, ...playerBans].forEach((word) => {
+        const key = normalizeText(word);
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          mergedBans.push(word);
+        }
+      });
+
+      await updateDoc(doc(db, 'rooms', roomId), {
+        status: 'answering',
+        bannedWords: mergedBans,
+        phaseEndsAt: Date.now() + (room.answerTime || 30) * 1000,
+      });
+    } catch (err) {
+      phaseLockRef.current = '';
+      setHostGradingError(err.message);
+    }
+  };
+
+  // Transition: Answering -> Grading -> Results
+  const hostGradeRound = async (forceRetry = false) => {
+    if (!roomId || !room || !isHost) return;
+    if (!forceRetry && room.status !== 'answering') return;
+
+    const lockKey = `grade-${room.round}`;
+    if (!forceRetry && phaseLockRef.current === lockKey) return;
+    phaseLockRef.current = lockKey;
+    setHostGradingError('');
+
+    const roomRef = doc(db, 'rooms', roomId);
+    try {
+      await updateDoc(roomRef, { status: 'grading' });
+
+      const activeIds = Object.keys(room.players || {});
+      const subs = room.submissions || {};
+      const bannedSet = new Set((room.bannedWords || []).map(normalizeText).filter(Boolean));
+
+      // Count duplicates across active players
+      const freq = {};
+      activeIds.forEach((pid) => {
+        const norm = normalizeText(subs[pid]?.text || '');
+        if (norm) {
+          freq[norm] = (freq[norm] || 0) + 1;
+        }
+      });
+
+      const finalResults = {};
+      const toGradeByAI = [];
+
+      activeIds.forEach((pid) => {
+        const rawText = String(subs[pid]?.text || '').trim();
+        const norm = normalizeText(rawText);
+
+        if (!norm) {
+          finalResults[pid] = {
+            answer: t('(ไม่ได้ตอบ)', '(No answer)'),
+            status: 'timeout',
+            points: 0,
+            rarity: 0,
+            reason: t('ส่งคำตอบไม่ทันเวลา', 'Did not submit in time.'),
+          };
+        } else if (bannedSet.has(norm)) {
+          finalResults[pid] = {
+            answer: rawText,
+            status: 'banned',
+            points: 0,
+            rarity: 0,
+            reason: t('โดนคำต้องห้าม! อดคะแนนรอบนี้', 'Hit a banned word! 0 pts.'),
+          };
+        } else if (freq[norm] > 1) {
+          finalResults[pid] = {
+            answer: rawText,
+            status: 'duplicate',
+            points: 0,
+            rarity: 0,
+            reason: t('ใจตรงกัน! ตอบซ้ำกับเพื่อน ตัดคะแนนคู่', 'Duplicate answer! Cancelled out.'),
+          };
+        } else {
+          toGradeByAI.push({ id: pid, text: rawText });
+        }
+      });
+
+      // Only call AI if there are unique non-banned answers
+      if (toGradeByAI.length > 0) {
+        const aiMap = await gradeAnswersBatchAI({
+          question: room.question?.question || '',
+          answers: toGradeByAI,
+          lang,
+        });
+
+        toGradeByAI.forEach(({ id, text }) => {
+          const g = aiMap?.[id];
+          if (g && g.isValid) {
+            const pts = Math.max(10, Math.min(100, Number(g.rarity) || 50));
+            finalResults[id] = {
+              answer: text,
+              status: 'valid',
+              points: pts,
+              rarity: pts,
+              reason: g.reason || t('คำตอบถูกต้อง!', 'Valid answer!'),
+            };
+          } else {
+            finalResults[id] = {
+              answer: text,
+              status: 'invalid',
+              points: 0,
+              rarity: 0,
+              reason: g?.reason || t('คำตอบยังไม่ตรงเงื่อนไขคำถาม', 'Answer does not match the question.'),
+            };
+          }
+        });
+      }
+
+      // Compute updated scores
+      const updates = {
+        status: 'results',
+        roundResults: finalResults,
+      };
+      activeIds.forEach((pid) => {
+        const oldScore = Number(room.players?.[pid]?.score || 0);
+        const earned = Number(finalResults[pid]?.points || 0);
+        updates[`players.${pid}.score`] = oldScore + earned;
+      });
+
+      await updateDoc(roomRef, updates);
+    } catch (err) {
+      phaseLockRef.current = '';
+      setHostGradingError(err.message);
+    }
+  };
+
+  // Auto-advance Effect for Host (Banning -> Answering, Answering -> Grading)
+  useEffect(() => {
+    if (!isHost || !room || activePlayerIds.length === 0) return;
+
+    if (room.status === 'banning') {
+      const bansMap = room.bans || {};
+      const allDoneBanning = activePlayerIds.every((pid) => Boolean(bansMap[pid]));
+      const timeExpired = room.phaseEndsAt > 0 && Date.now() >= room.phaseEndsAt;
+      if (allDoneBanning || timeExpired) {
+        hostAdvanceToAnswering();
+      }
+    } else if (room.status === 'answering') {
+      const subsMap = room.submissions || {};
+      const allSubmitted = activePlayerIds.every((pid) => Boolean(subsMap[pid]));
+      const timeExpired = room.phaseEndsAt > 0 && Date.now() >= room.phaseEndsAt;
+      if (allSubmitted || timeExpired) {
+        hostGradeRound(false);
+      }
+    }
+  }, [isHost, room, mpTimeLeft]);
+
+  // Player actions during Banning & Answering
+  const handleSubmitBan = async (skip = false) => {
+    if (!roomId || !room || !user || room.status !== 'banning') return;
+    if (room.bans?.[user.id]) return;
+
+    const word = skip ? '' : mpBanInput.trim();
+    if (!skip && !word) return;
+
+    try {
+      await updateDoc(doc(db, 'rooms', roomId), {
+        [`bans.${user.id}`]: {
+          word,
+          skipped: skip,
+          submittedAt: Date.now(),
+        },
+      });
+    } catch (err) {
+      setGlobalNotice({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleSubmitMpAnswer = async (e) => {
+    e?.preventDefault();
+    if (!roomId || !room || !user || room.status !== 'answering') return;
+    if (room.submissions?.[user.id]) return;
+
+    const text = mpAnswer.trim();
+    if (!text) return;
+
+    try {
+      await updateDoc(doc(db, 'rooms', roomId), {
+        [`submissions.${user.id}`]: {
+          text,
+          submittedAt: Date.now(),
+        },
+      });
+    } catch (err) {
+      setGlobalNotice({ type: 'error', text: err.message });
+    }
+  };
+
+  const hostNextStepFromResults = async () => {
+    if (!roomId || !room || !isHost) return;
+    if (room.round >= (room.totalRounds || 5)) {
+      await updateDoc(doc(db, 'rooms', roomId), { status: 'finished' });
+    } else {
+      await hostStartRound(room.round + 1, false);
+    }
+  };
+
+  const hostBackToLobby = async () => {
+    if (!roomId || !room || !isHost) return;
+    phaseLockRef.current = '';
+    await updateDoc(doc(db, 'rooms', roomId), {
+      status: 'lobby',
+      round: 0,
+      question: null,
+      bans: {},
+      submissions: {},
+      roundResults: null,
+      bannedWords: [],
+    });
+  };
+
+  // Invite URL & QR code
+  const inviteUrl =
+    typeof window !== 'undefined' && roomId
+      ? `${window.location.origin}${window.location.pathname}?room=${roomId}`
+      : '';
+
+  const qrImageUrl = inviteUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(inviteUrl)}`
+    : '';
+
+  const copyInviteLink = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch {
+      setGlobalNotice({ type: 'info', text: inviteUrl });
+    }
+  };
+
+  // ==========================================
+  // RENDER: LOGIN SCREEN
+  // ==========================================
+
+  if (!user) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
-        {toast && (
-          <div className="fixed top-4 right-4 z-50 bg-indigo-600 text-white px-4 py-2 rounded-xl shadow-lg text-sm font-medium">
-            {toast}
-          </div>
-        )}
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-fuchsia-400"/>
-              <h1 className="text-xl font-bold tracking-tight">
-                {lang === 'th' ? 'ทายสวนกระแส' : 'Reverse Trivia'}
-              </h1>
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="font-black text-xl tracking-tight">Reverse Trivia</h1>
+                <p className="text-xs text-indigo-400 font-medium">ทายสวนกระแส</p>
+              </div>
             </div>
             <button
-              onClick={() => setLang(lang === 'th' ? 'en' : 'th')}
-              className="flex items-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700"
+              onClick={() => setLang((l) => (l === 'th' ? 'en' : 'th'))}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5"
             >
-              <Globe className="w-3.5 h-3.5 text-sky-400"/>
-              {lang === 'th' ? 'ภาษาไทย' : 'English'}
+              <Globe className="w-3.5 h-3.5 text-indigo-400" />
+              {lang.toUpperCase()}
             </button>
           </div>
 
-          <p className="text-sm text-slate-400">
-            {lang === 'th'
-              ? 'สร้าง Player ID + รหัส PIN 4 หลัก เพื่อบันทึกสถิติและคลังการ์ด Mythic ของคุณไว้บนคลาวด์ถาวร'
-              : 'Create a Player ID + 4-digit PIN to permanently save your career stats and Mythic Card Vault.'}
+          {pendingRoomCode && (
+            <div className="mb-5 p-3.5 rounded-2xl bg-indigo-500/15 border border-indigo-500/40 text-sm text-indigo-200 flex items-center gap-2.5">
+              <Users className="w-5 h-5 text-indigo-400 shrink-0" />
+              <span>
+                {t(
+                  `คุณได้รับคำเชิญเข้าห้อง ${pendingRoomCode} — กรอกชื่อและ PIN เพื่อเข้าห้องทันที`,
+                  `Invited to Room ${pendingRoomCode} — sign in to join immediately!`
+                )}
+              </span>
+            </div>
+          )}
+
+          <p className="text-sm text-slate-400 mb-6">
+            {t(
+              'สร้างชื่อผู้เล่น + รหัส PIN 4 หลัก (หรือใส่ของเดิมเพื่อเข้าสู่ระบบ)',
+              'Create a Player ID + 4-digit PIN (or sign in with an existing one).'
+            )}
           </p>
 
-          <div className="grid grid-cols-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
-            <button
-              type="button"
-              onClick={() => { setAuthMode('signin'); setAuthError(''); }}
-              className={`py-2 text-sm font-semibold rounded-lg transition ${
-                authMode === 'signin' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {lang === 'th' ? 'เข้าสู่ระบบ (Sign In)' : 'Sign In'}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setAuthMode('register'); setAuthError(''); }}
-              className={`py-2 text-sm font-semibold rounded-lg transition ${
-                authMode === 'register' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              {lang === 'th' ? 'สร้าง ID ใหม่' : 'Create New ID'}
-            </button>
-          </div>
+          {authError && (
+            <div className="mb-4 p-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-sm flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
 
-          <form onSubmit={handleAuthSubmit} className="space-y-4">
-            {authMode === 'register' && (
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                  {lang === 'th' ? 'เลือกอวาตาร์' : 'Choose Avatar'}
-                </label>
-                <div className="grid grid-cols-6 gap-2">
-                  {AVATARS.map((av) => (
-                    <button
-                      type="button"
-                      key={av}
-                      onClick={() => setAvatarInput(av)}
-                      className={`text-xl py-2 rounded-xl border transition ${
-                        avatarInput === av
-                          ? 'bg-indigo-600/30 border-indigo-400 scale-105'
-                          : 'bg-slate-950 border-slate-800 hover:border-slate-700'
-                      }`}
-                    >
-                      {av}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
+          <form onSubmit={handleAuth} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">
-                {lang === 'th' ? 'ชื่อ Player ID' : 'Player ID / Handle'}
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('ชื่อผู้เล่น (Player ID)', 'Player ID')}
               </label>
               <input
                 type="text"
-                value={handleInput}
-                onChange={(e) => setHandleInput(e.target.value)}
-                placeholder={lang === 'th' ? 'เช่น Boss, Mindy' : 'e.g. Boss, Mindy'}
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-indigo-500"
+                value={authId}
+                onChange={(e) => setAuthId(e.target.value)}
+                placeholder={t('เช่น player1 หรือ ชื่อเล่นของคุณ', 'e.g. player1')}
+                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 focus:border-indigo-500 focus:outline-none text-white"
+                maxLength={24}
+                required
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">
-                {lang === 'th' ? 'รหัส PIN 4 หลัก (สำหรับเข้าจากเครื่องอื่น)' : '4-Digit Game PIN'}
+              <label className="block text-xs font-semibold text-slate-400 mb-1.5">
+                {t('รหัส PIN 4 หลัก', '4-Digit PIN')}
               </label>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-3"/>
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={4}
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  placeholder="••••"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-sm tracking-widest focus:outline-none focus:border-indigo-500"
-                />
-              </div>
+              <input
+                type="password"
+                inputMode="numeric"
+                value={authPin}
+                onChange={(e) => setAuthPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="••••"
+                className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 focus:border-indigo-500 focus:outline-none text-white tracking-widest text-center text-lg"
+                maxLength={4}
+                required
+              />
             </div>
-
-            {authError && (
-              <div className="text-xs text-rose-400 bg-rose-950/40 border border-rose-500/40 rounded-lg p-2.5">
-                {authError}
-              </div>
-            )}
 
             <button
               type="submit"
-              disabled={Boolean(loadingMsg)}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold py-2.5 rounded-xl transition flex items-center justify-center gap-2"
+              disabled={authLoading}
+              className="w-full py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 font-bold text-white flex items-center justify-center gap-2 transition"
             >
-              {loadingMsg ? loadingMsg : authMode === 'register' ? (lang === 'th' ? 'สร้างบัญชีและเริ่มเล่น' : 'Create ID & Play') : (lang === 'th' ? 'เข้าสู่ระบบ' : 'Enter Game')}
-              <ArrowRight className="w-4 h-4"/>
+              {authLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  <LogIn className="w-5 h-5" />
+                  {pendingRoomCode
+                    ? t(`เข้าสู่ระบบและเข้าห้อง ${pendingRoomCode}`, `Sign In & Join ${pendingRoomCode}`)
+                    : t('เข้าเล่นเกม', 'Enter Game')}
+                </>
+              )}
             </button>
           </form>
-
-          {allPlayers.length > 0 && authMode === 'signin' && (
-            <div className="pt-2 border-t border-slate-800">
-              <p className="text-xs text-slate-400 mb-2">
-                {lang === 'th' ? 'แตะชื่อเพื่อเลือก ID:' : 'Quick-select existing ID:'}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {allPlayers.slice(0, 10).map((p) => (
-                  <button
-                    type="button"
-                    key={p.id}
-                    onClick={() => setHandleInput(p.handle)}
-                    className="text-xs bg-slate-950 hover:bg-slate-800 border border-slate-800 px-2.5 py-1 rounded-full flex items-center gap-1"
-                  >
-                    <span>{p.avatar}</span>
-                    <span>{p.handle}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     );
   }
 
-  // --- MAIN APP SHELL ---
-  const activeMultiplayerResults = gameMode === 'online' ? roomData?.roundResults || [] : roundResults;
-  const activeMultiplayerPlayers =
-    gameMode === 'online' ? Object.values(roomData?.players || {}) : partyPlayersState;
-  const activeQuestionObj = gameMode === 'online' ? roomData?.currentQuestion : currentQuestion;
-  const activeRoundNum = gameMode === 'online' ? roomData?.roundNum || 1 : roundNum;
-  const activeTotalRounds = gameMode === 'online' ? roomData?.totalRounds || totalRounds : totalRounds;
+  // ==========================================
+  // RENDER: HEADER BAR
+  // ==========================================
+
+  const sortedPlayers = room?.players
+    ? Object.values(room.players).sort((a, b) => (b.score || 0) - (a.score || 0))
+    : [];
+
+  const mpPhases = [
+    { key: 'lobby', th: '1. ห้องรอ', en: '1. Lobby' },
+    { key: 'banning', th: '2. แบนคำ', en: '2. Ban' },
+    { key: 'answering', th: '3. ตอบคำถาม', en: '3. Answer' },
+    { key: 'results', th: '4. ผลคะแนน', en: '4. Results' },
+    { key: 'finished', th: '5. สรุป', en: '5. Final' },
+  ];
+
+  const activePhaseIndex =
+    room?.status === 'lobby'
+      ? 0
+      : room?.status === 'generating' || room?.status === 'banning'
+      ? 1
+      : room?.status === 'answering' || room?.status === 'grading'
+      ? 2
+      : room?.status === 'results'
+      ? 3
+      : 4;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-12">
-      {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-indigo-600 text-white px-4 py-2.5 rounded-xl shadow-xl text-sm font-medium flex items-center gap-2">
-          <Check className="w-4 h-4"/>
-          {toast}
-        </div>
-      )}
-
-      {/* TOP BAR */}
-      <header className="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => {
-                setPhase('LOBBY');
-                setRoomCode('');
-                setRoomData(null);
-                setActiveTab('play');
-              }}
-              className="flex items-center gap-2 font-bold text-base sm:text-lg hover:text-fuchsia-300 transition"
-            >
-              <Sparkles className="w-5 h-5 text-fuchsia-400"/>
-              <span>{lang === 'th' ? 'ทายสวนกระแส' : 'Reverse Trivia'}</span>
-            </button>
-          </div>
+      {/* Top Navbar */}
+      <header className="sticky top-0 z-30 bg-slate-950/90 backdrop-blur border-b border-slate-800">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          <button
+            onClick={() => {
+              if (view === 'multi' && roomId) {
+                if (window.confirm(t('ต้องการออกจากห้อง Multiplayer ใช่ไหม?', 'Leave Multiplayer room?'))) {
+                  handleLeaveRoom();
+                }
+              } else {
+                setView('home');
+                setSoloState(null);
+              }
+            }}
+            className="flex items-center gap-2.5 text-left"
+          >
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <div className="font-black text-base leading-tight">Reverse Trivia</div>
+              <div className="text-[11px] text-indigo-400 font-semibold">ทายสวนกระแส</div>
+            </div>
+          </button>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={shareInvite}
-              className="flex items-center gap-1.5 text-xs bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 px-2.5 py-1.5 rounded-lg transition"
+              onClick={() => setLang((l) => (l === 'th' ? 'en' : 'th'))}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-xs font-bold flex items-center gap-1"
             >
-              <Share2 className="w-3.5 h-3.5"/>
-              <span className="hidden sm:inline">{lang === 'th' ? 'แชร์เกม' : 'Share'}</span>
+              <Globe className="w-3.5 h-3.5 text-indigo-400" />
+              {lang.toUpperCase()}
             </button>
-
-            <button
-              onClick={() => setLang(lang === 'th' ? 'en' : 'th')}
-              className="flex items-center gap-1 text-xs bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-lg border border-slate-700"
-            >
-              <Globe className="w-3.5 h-3.5 text-sky-400"/>
-              <span>{lang === 'th' ? 'TH' : 'EN'}</span>
-            </button>
-
-            <div className="flex items-center gap-1.5 bg-slate-800/90 border border-slate-700 px-2.5 py-1 rounded-lg text-xs">
-              <span>{currentUser.avatar}</span>
-              <span className="font-semibold max-w-[80px] truncate">{currentUser.handle}</span>
-              <button
-                onClick={handleLogout}
-                title="Switch ID"
-                className="text-slate-400 hover:text-rose-400 ml-1"
-              >
-                <LogOut className="w-3.5 h-3.5"/>
-              </button>
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+              <span className="font-bold text-white">{user.displayName}</span>
+              <span className="text-amber-400 font-semibold">★ {user.bestScore || 0}</span>
             </div>
+            <button
+              onClick={handleLogout}
+              title={t('ออกจากระบบ', 'Sign Out')}
+              className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-rose-500/50 text-slate-400 hover:text-rose-400 transition"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 pt-6 space-y-6">
-        {errorMsg && (
-          <div className="bg-rose-950/50 border border-rose-500/50 text-rose-200 px-4 py-3 rounded-xl text-sm flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0"/>
-              <span>{errorMsg}</span>
+      <main className="max-w-5xl mx-auto px-4 pt-6">
+        {/* Global Alert Banner */}
+        {globalNotice && (
+          <div
+            className={`mb-5 p-4 rounded-2xl border flex items-start justify-between gap-3 text-sm ${
+              globalNotice.type === 'error'
+                ? 'bg-rose-500/15 border-rose-500/40 text-rose-200'
+                : 'bg-indigo-500/15 border-indigo-500/40 text-indigo-200'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              <span>{globalNotice.text}</span>
             </div>
-            <button onClick={() => setErrorMsg('')} className="text-xs underline ml-3">
-              Dismiss
+            <button
+              onClick={() => setGlobalNotice(null)}
+              className="text-xs opacity-70 hover:opacity-100 font-bold px-2"
+            >
+              ✕
             </button>
           </div>
         )}
 
-        {/* LOBBY & NAVIGATION TABS */}
-        {phase === 'LOBBY' && !roomCode && (
-          <>
-            <div className="grid grid-cols-4 gap-1.5 bg-slate-900 p-1.5 rounded-2xl border border-slate-800">
-              {[
-                { id: 'play', icon: Play, labelTh: 'เล่นเกม', labelEn: 'Play' },
-                { id: 'vault', icon: Sparkles, labelTh: 'คลังการ์ด', labelEn: 'Vault' },
-                { id: 'leaderboard', icon: Trophy, labelTh: 'อันดับ', labelEn: 'Ranks' },
-                { id: 'history', icon: History, labelTh: 'ประวัติ', labelEn: 'History' },
-              ].map((t) => {
-                const Icon = t.icon;
-                return (
-                  <button
-                    key={t.id}
-                    onClick={() => setActiveTab(t.id)}
-                    className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition ${
-                      activeTab === t.id
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4"/>
-                    <span>{lang === 'th' ? t.labelTh : t.labelEn}</span>
-                  </button>
-                );
-              })}
-            </div>
+        {/* ==========================================
+            VIEW 1: HOME LOBBY (SOLO + MULTIPLAYER)
+           ========================================== */}
+        {view === 'home' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left 2 Columns: Game Setup */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Multiplayer Quick Card */}
+              <div className="bg-gradient-to-br from-indigo-950/80 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-3xl p-6 shadow-xl">
+                <div className="flex items-center gap-2 mb-1">
+                  <Users className="w-5 h-5 text-indigo-400" />
+                  <h2 className="font-black text-lg">{t('เล่นหลายคนกับเพื่อน (Multiplayer)', 'Play with Friends (Multiplayer)')}</h2>
+                </div>
+                <p className="text-xs text-slate-400 mb-5">
+                  {t(
+                    'สร้างห้องแชร์ลิงก์/QR โค้ด — ใครตอบซ้ำกันอดคะแนน! เปิดโหมดแบนคำต้องห้ามแกล้งเพื่อนได้',
+                    'Create a room with shareable link & QR code. Duplicate answers cancel out!'
+                  )}
+                </p>
 
-            {/* TAB 1: PLAY SETUP */}
-            {activeTab === 'play' && (
-              <div className="space-y-5">
-                {/* Career Mini Banner */}
-                <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="text-3xl bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                      {currentUser.avatar}
-                    </div>
-                    <div>
-                      <div className="font-bold text-base">{currentUser.handle}</div>
-                      <div className="text-xs text-slate-400">
-                        {lang === 'th' ? 'การ์ดแรร์สะสม:' : 'Vault Cards:'}{' '}
-                        <span className="text-amber-400 font-semibold">{currentUser.vault?.length || 0}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-4 text-center">
-                    <div>
-                      <div className="text-xs text-slate-400">{lang === 'th' ? 'เล่นแล้ว' : 'Played'}</div>
-                      <div className="font-bold text-sm">{currentUser.gamesPlayed || 0}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-400">{lang === 'th' ? 'ชนะ' : 'Wins'}</div>
-                      <div className="font-bold text-sm text-emerald-400">{currentUser.wins || 0}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-400">{lang === 'th' ? 'สูงสุด' : 'Best'}</div>
-                      <div className="font-bold text-sm text-amber-400">{currentUser.bestScore || 0}</div>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={handleCreateRoom}
+                    disabled={mpActionBusy}
+                    className="py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 font-bold text-white flex items-center justify-center gap-2 transition shadow-lg shadow-indigo-600/20"
+                  >
+                    {mpActionBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Plus className="w-5 h-5" />}
+                    {t('สร้างห้องใหม่', 'Create Room')}
+                  </button>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={joinCodeInput}
+                      onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase().slice(0, 6))}
+                      placeholder={t('กรอกรหัสห้อง 6 หลัก', 'Room Code')}
+                      className="flex-1 min-w-0 px-3.5 py-3 rounded-2xl bg-slate-950 border border-slate-700 focus:border-indigo-500 focus:outline-none text-center font-mono font-bold tracking-widest uppercase"
+                    />
+                    <button
+                      onClick={() => handleJoinRoom(joinCodeInput)}
+                      disabled={mpActionBusy || joinCodeInput.trim().length < 4}
+                      className="px-4 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 font-bold text-white flex items-center gap-1.5 transition shrink-0"
+                    >
+                      <LogIn className="w-4 h-4" />
+                      {t('เข้าห้อง', 'Join')}
+                    </button>
                   </div>
                 </div>
+              </div>
 
-                {/* Mode Selector */}
-                <div className="grid sm:grid-cols-3 gap-3">
-                  {[
-                    {
-                      id: 'solo',
-                      icon: User,
-                      titleTh: 'เล่นคนเดียว (Solo)',
-                      titleEn: 'Solo Run',
-                      descTh: 'ไต่แรงก์ Classic หรือเอาชีวิตรอด 3 หัวใจ',
-                      descEn: 'Classic 5/10 or 3-Heart Survival',
-                    },
-                    {
-                      id: 'party',
-                      icon: Users,
-                      titleTh: 'ปาร์ตี้จอเดียว (Pass & Play)',
-                      titleEn: 'Party Pass & Play',
-                      descTh: 'เล่น 2–6 คนบนเครื่องเดียว พร้อมม่านบังคำตอบ',
-                      descEn: '2–6 players on 1 screen with Privacy Curtain',
-                    },
-                    {
-                      id: 'online',
-                      icon: Globe,
-                      titleTh: 'ออนไลน์ข้ามเครื่อง',
-                      titleEn: 'Online Room Sync',
-                      descTh: 'สร้างห้อง 4 หลัก ชวนเพื่อนเล่นพร้อมกัน',
-                      descEn: '4-char Room Code synced live across devices',
-                    },
-                  ].map((m) => {
+              {/* Solo Mode Setup */}
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-black text-lg flex items-center gap-2">
+                    <Play className="w-5 h-5 text-emerald-400" />
+                    {t('เล่นคนเดียว (Solo Run)', 'Solo Run')}
+                  </h2>
+                </div>
+
+                {/* Mode cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {SOLO_MODES.map((m) => {
                     const Icon = m.icon;
                     return (
                       <button
                         key={m.id}
                         onClick={() => setGameMode(m.id)}
-                        className={`text-left p-4 rounded-2xl border transition ${
+                        className={`p-4 rounded-2xl border text-left transition ${
                           gameMode === m.id
-                            ? 'bg-indigo-950/50 border-indigo-500 shadow-lg'
-                            : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                            ? 'bg-indigo-600/15 border-indigo-500 text-white'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:border-slate-700'
                         }`}
                       >
-                      <Icon className={`w-5 h-5 mb-2 ${gameMode === m.id ? 'text-indigo-400' : 'text-slate-400'}`} />
+                        <Icon className={`w-5 h-5 mb-2 ${gameMode === m.id ? 'text-indigo-400' : 'text-slate-400'}`} />
                         <div className="font-bold text-sm">{lang === 'th' ? m.titleTh : m.titleEn}</div>
                         <div className="text-xs text-slate-400 mt-1">{lang === 'th' ? m.descTh : m.descEn}</div>
                       </button>
@@ -1513,968 +1509,992 @@ Return strict JSON:
                   })}
                 </div>
 
-                {/* Question Pool Depth */}
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold">
-                    <Sliders className="w-4 h-4 text-sky-400"/>
-                    <span>{lang === 'th' ? 'ความกว้าง-แคบของโจทย์ (Pool Depth)' : 'Question Pool Depth'}</span>
+                {/* Category & Difficulty */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-2">
+                      {t('หมวดหมู่คำถาม', 'Category')}
+                    </label>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm focus:border-indigo-500 focus:outline-none"
+                    >
+                      {CATEGORIES.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {lang === 'th' ? c.th : c.en}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'Wide', labelTh: 'กว้าง (Wide)', labelEn: 'Wide', subTh: 'คำตอบถูก 100+', subEn: '100+ valid answers' },
-                      { id: 'Balanced', labelTh: 'สมดุล (Balanced)', labelEn: 'Balanced', subTh: 'คำตอบถูก 30–80', subEn: '30–80 valid answers' },
-                      { id: 'Narrow', labelTh: 'แคบ/โหด (Narrow)', labelEn: 'Narrow', subTh: 'เงื่อนไขซ้อน 10–25', subEn: 'Stacked 10–25 pool' },
-                    ].map((d) => (
-                      <button
-                        key={d.id}
-                        onClick={() => setPoolDepth(d.id)}
-                        className={`p-2.5 rounded-xl border text-left transition ${
-                          poolDepth === d.id
-                            ? 'bg-sky-950/50 border-sky-500 text-sky-200'
-                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="text-xs font-bold">{lang === 'th' ? d.labelTh : d.labelEn}</div>
-                        <div className="text-[11px] opacity-80 mt-0.5">{lang === 'th' ? d.subTh : d.subEn}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
 
-                {/* SOLO OPTIONS */}
-                {gameMode === 'solo' && (
-                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-400 mb-2">
+                      {t('ระดับความยาก', 'Difficulty')}
+                    </label>
                     <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { id: 'classic5', label: 'Classic 5' },
-                        { id: 'classic10', label: 'Classic 10' },
-                        { id: 'survival', label: lang === 'th' ? 'เอาชีวิตรอด (3 ❤️)' : 'Survival (3 ❤️)' },
-                      ].map((v) => (
+                      {DIFFICULTIES.map((d) => (
                         <button
-                          key={v.id}
-                          onClick={() => setSoloVariant(v.id)}
-                          className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition ${
-                            soloVariant === v.id
-                              ? 'bg-indigo-600 border-indigo-400 text-white'
-                              : 'bg-slate-950 border-slate-800 text-slate-400'
+                          key={d.id}
+                          onClick={() => setDifficulty(d.id)}
+                          className={`py-2.5 rounded-xl text-xs font-bold border transition ${
+                            difficulty === d.id
+                              ? 'bg-indigo-600 border-indigo-500 text-white'
+                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
                           }`}
                         >
-                          {v.label}
+                          {lang === 'th' ? d.th : d.en}
                         </button>
                       ))}
                     </div>
-
-                    <button
-                      onClick={startSoloGame}
-                      disabled={Boolean(loadingMsg)}
-                      className="w-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2"
-                    >
-                      <Play className="w-4 h-4"/>
-                      {loadingMsg || (lang === 'th' ? 'เริ่มเกมคนเดียว' : 'Start Solo Run')}
-                    </button>
-                  </div>
-                )}
-
-                {/* PARTY OPTIONS */}
-                {gameMode === 'party' && (
-                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
-                    <div className="grid sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-xs text-slate-400 mb-1">
-                          {lang === 'th' ? 'จำนวนรอบ' : 'Rounds'}
-                        </label>
-                        <select
-                          value={totalRounds}
-                          onChange={(e) => setTotalRounds(Number(e.target.value))}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs"
-                        >
-                          <option value={3}>3 Rounds</option>
-                          <option value={5}>5 Rounds</option>
-                          <option value={7}>7 Rounds</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-400 mb-1">
-                          {lang === 'th' ? 'ระบบแบนหัวข้อ' : 'Topic Veto'}
-                        </label>
-                        <select
-                          value={vetoMode}
-                          onChange={(e) => setVetoMode(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs"
-                        >
-                          <option value="simultaneous">{lang === 'th' ? 'โหวตแบนทุกคน' : 'All Vote Ban'}</option>
-                          <option value="rotating">{lang === 'th' ? '2 อันดับท้ายแบน' : 'Bottom 2 Veto'}</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-400 mb-1">
-                          {lang === 'th' ? 'กฎใจตรงกัน (Collision)' : 'Collision Penalty'}
-                        </label>
-                        <select
-                          value={collisionPenalty}
-                          onChange={(e) => setCollisionPenalty(e.target.value)}
-                          className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs"
-                        >
-                          <option value="zero">{lang === 'th' ? '0 แต้มทันที (โหด)' : '0 Points (Strict)'}</option>
-                          <option value="half">{lang === 'th' ? 'หารครึ่ง -50%' : 'Half Points (-50%)'}</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="text-xs font-semibold text-slate-300">
-                        {lang === 'th' ? `ผู้เล่น (${partyRoster.length}/6 คน)` : `Players (${partyRoster.length}/6)`}
-                      </div>
-                      <div className="grid sm:grid-cols-2 gap-2">
-                        {partyRoster.map((p, idx) => (
-                          <div
-                            key={p.id}
-                            className="flex items-center justify-between bg-slate-950 border border-slate-800 px-3 py-2 rounded-xl text-sm"
-                          >
-                            <span>
-                              {p.avatar} {p.name}
-                            </span>
-                            {partyRoster.length > 2 && (
-                              <button
-                                onClick={() => setPartyRoster((prev) => prev.filter((_, i) => i !== idx))}
-                                className="text-xs text-rose-400 hover:underline"
-                              >
-                                Remove
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      {partyRoster.length < 6 && (
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={newPartyName}
-                            onChange={(e) => setNewPartyName(e.target.value)}
-                            placeholder={lang === 'th' ? 'เพิ่มชื่อผู้เล่น...' : 'Add player name...'}
-                            className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs"
-                          />
-                          <button
-                            type="button"
-                            onClick={addPartyPlayer}
-                            className="bg-slate-800 hover:bg-slate-700 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1"
-                          >
-                            <Plus className="w-3.5 h-3.5"/> Add
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={startPartyGame}
-                      disabled={Boolean(loadingMsg)}
-                      className="w-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 hover:from-indigo-500 hover:to-fuchsia-500 text-white font-bold py-3 rounded-xl shadow-lg transition flex items-center justify-center gap-2"
-                    >
-                      <Play className="w-4 h-4"/>
-                      {loadingMsg || (lang === 'th' ? 'เริ่มปาร์ตี้ Pass & Play' : 'Start Party Game')}
-                    </button>
-                  </div>
-                )}
-
-                {/* ONLINE ROOM SYNC OPTIONS */}
-                {gameMode === 'online' && (
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                      <h3 className="font-bold text-sm text-indigo-300">
-                        {lang === 'th' ? 'สร้างห้องใหม่ (Host)' : 'Create New Room'}
-                      </h3>
-                      <div className="grid grid-cols-2 gap-2">
-                        <select
-                          value={totalRounds}
-                          onChange={(e) => setTotalRounds(Number(e.target.value))}
-                          className="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs"
-                        >
-                          <option value={3}>3 Rounds</option>
-                          <option value={5}>5 Rounds</option>
-                          <option value={7}>7 Rounds</option>
-                        </select>
-                        <select
-                          value={collisionPenalty}
-                          onChange={(e) => setCollisionPenalty(e.target.value)}
-                          className="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-xs"
-                        >
-                          <option value="zero">{lang === 'th' ? 'ชนกัน = 0 แต้ม' : 'Collision = 0 pts'}</option>
-                          <option value="half">{lang === 'th' ? 'ชนกัน = -50%' : 'Collision = -50%'}</option>
-                        </select>
-                      </div>
-                      <button
-                        onClick={createOnlineRoom}
-                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 rounded-xl text-sm transition"
-                      >
-                        {lang === 'th' ? 'สร้างรหัสห้อง 4 หลัก' : 'Create 4-Char Room'}
-                      </button>
-                    </div>
-
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                      <h3 className="font-bold text-sm text-emerald-300">
-                        {lang === 'th' ? 'เข้าร่วมห้องเพื่อน (Join)' : 'Join Existing Room'}
-                      </h3>
-                      <input
-                        type="text"
-                        maxLength={4}
-                        value={joinCodeInput}
-                        onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                        placeholder="ABCD"
-                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-center font-mono text-lg tracking-widest uppercase"
-                      />
-                      <button
-                        onClick={joinOnlineRoom}
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-sm transition"
-                      >
-                        {lang === 'th' ? 'เข้าห้อง' : 'Join Room'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB 2: PERSONAL MYTHIC VAULT */}
-            {activeTab === 'vault' && (
-              <div className="space-y-4">
-                <h2 className="font-bold text-base flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-400"/>
-                  {lang === 'th' ? `คลังการ์ดแรร์ของ ${currentUser.handle}` : `${currentUser.handle}'s Rare+ Vault`}
-                </h2>
-                {(!currentUser.vault || currentUser.vault.length === 0) ? (
-                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-sm text-slate-400">
-                    {lang === 'th'
-                      ? 'ยังไม่มีการ์ดระดับ Rare ขึ้นไป ลองเล่นสักรอบเพื่อสะสมการ์ด!'
-                      : 'No Rare+ pulls yet. Play a match to start collecting!'}
-                  </div>
-                ) : (
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    {currentUser.vault.map((card, i) => {
-                      const rc = RARITY_CONFIG[card.rarityTier] || RARITY_CONFIG.Rare;
-                      return (
-                        <div key={i} className={`p-4 rounded-2xl border ${rc.border} ${rc.bg} space-y-1.5`}>
-                          <div className="flex items-center justify-between">
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${rc.badge}`}>
-                              {card.rarityTier}
-                            </span>
-                            <span className="text-xs font-mono text-slate-300">+{card.points} pts</span>
-                          </div>
-                          <div className="font-bold text-base text-white">{card.answer}</div>
-                          <div className="text-xs text-slate-400 line-clamp-2">{card.question}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB 3: LEADERBOARD & HALL OF FAME */}
-            {activeTab === 'leaderboard' && (
-              <div className="grid md:grid-cols-2 gap-5">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                  <h3 className="font-bold text-sm flex items-center gap-2 text-amber-400">
-                    <Trophy className="w-4 h-4"/>
-                    {lang === 'th' ? 'อันดับผู้เล่นสูงสุด' : 'Top Player IDs'}
-                  </h3>
-                  <div className="space-y-2">
-                    {[...allPlayers]
-                      .sort((a, b) => (b.bestScore || 0) - (a.bestScore || 0))
-                      .slice(0, 10)
-                      .map((p, idx) => (
-                        <div
-                          key={p.id}
-                          className="flex items-center justify-between bg-slate-950 border border-slate-800 px-3 py-2 rounded-xl text-xs"
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-500 w-4">#{idx + 1}</span>
-                            <span>{p.avatar}</span>
-                            <span className="font-semibold">{p.handle}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-slate-400">{p.wins || 0}W</span>
-                            <span className="font-bold text-amber-400">{p.bestScore || 0} pts</span>
-                          </div>
-                        </div>
-                      ))}
                   </div>
                 </div>
 
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                  <h3 className="font-bold text-sm flex items-center gap-2 text-fuchsia-400">
-                    <Crown className="w-4 h-4"/>
-                    {lang === 'th' ? 'หอเกียรติยศ (Legendary & Mythic)' : 'Group Hall of Fame'}
-                  </h3>
-                  <div className="space-y-2">
-                    {hallOfFame.length === 0 ? (
-                      <p className="text-xs text-slate-400">No Legendary/Mythic pulls recorded yet.</p>
-                    ) : (
-                      hallOfFame.map((item) => {
-                        const rc = RARITY_CONFIG[item.rarityTier] || RARITY_CONFIG.Legendary;
-                        return (
-                          <div
-                            key={item.id}
-                            className={`p-2.5 rounded-xl border ${rc.border} ${rc.bg} text-xs space-y-1`}
-                          >
-                            <div className="flex justify-between font-bold">
-                              <span>
-                                {item.avatar} {item.handle}: <span className="text-white">{item.answer}</span>
-                              </span>
-                              <span className={rc.color}>{item.rarityTier}</span>
-                            </div>
-                            <div className="text-[11px] text-slate-400 truncate">{item.question}</div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB 4: MATCH HISTORY */}
-            {activeTab === 'history' && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                <h3 className="font-bold text-sm flex items-center gap-2">
-                  <History className="w-4 h-4 text-sky-400"/>
-                  {lang === 'th' ? 'ประวัติการแข่งขันล่าสุด' : 'Recent Multiplayer Matches'}
-                </h3>
-                {matchHistory.length === 0 ? (
-                  <p className="text-xs text-slate-400">No completed online matches yet.</p>
-                ) : (
-                  <div className="space-y-2.5">
-                    {matchHistory.map((m) => (
-                      <div key={m.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs space-y-2">
-                        <div className="flex justify-between text-slate-400">
-                          <span>Room #{m.roomCode}</span>
-                          <span>{new Date(m.timestamp).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {(m.players || []).map((p, i) => (
-                            <span
-                              key={i}
-                              className={`px-2.5 py-1 rounded-lg border ${
-                                i === 0
-                                  ? 'bg-amber-950/40 border-amber-500/50 text-amber-200 font-bold'
-                                  : 'bg-slate-900 border-slate-800 text-slate-300'
-                              }`}
-                            >
-                              {i === 0 ? '👑 ' : ''}
-                              {p.avatar} {p.handle}: {p.score}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ONLINE LOBBY WAITING ROOM */}
-        {phase === 'LOBBY' && roomCode && roomData && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
-              <div>
-                <div className="text-xs text-slate-400">{lang === 'th' ? 'รหัสห้องออนไลน์' : 'Online Room Code'}</div>
-                <div className="text-3xl font-mono font-black tracking-widest text-indigo-400">{roomCode}</div>
-              </div>
-              <div className="flex gap-2">
                 <button
-                  onClick={shareInvite}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-1.5"
+                  onClick={startSoloGame}
+                  disabled={soloBusy}
+                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 font-bold text-white flex items-center justify-center gap-2 transition shadow-lg shadow-emerald-600/20"
                 >
-                  <Share2 className="w-4 h-4"/>
-                  {lang === 'th' ? 'ชวนเพื่อน' : 'Invite Friends'}
-                </button>
-                <button
-                  onClick={() => { setRoomCode(''); setRoomData(null); }}
-                  className="bg-slate-800 hover:bg-slate-700 text-xs px-3 py-2.5 rounded-xl"
-                >
-                  {lang === 'th' ? 'ออก' : 'Leave'}
+                  {soloBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
+                  {t('เริ่มเกมคนเดียว', 'Start Solo Run')}
                 </button>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="text-xs font-semibold text-slate-400">
-                {lang === 'th'
-                  ? `ผู้เล่นในห้อง (${Object.keys(roomData.players || {}).length}/6)`
-                  : `Players in Room (${Object.keys(roomData.players || {}).length}/6)`}
+            {/* Right Column: How to Play + Leaderboard */}
+            <div className="space-y-6">
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+                <h3 className="font-bold text-sm text-indigo-300 mb-2 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  {t('กติกา Reverse Trivia', 'How to Play')}
+                </h3>
+                <ul className="text-xs text-slate-400 space-y-2 leading-relaxed">
+                  <li>• {t('ตอบให้ "ถูกต้องตามความจริง" แต่ต้อง "แรร์/ไม่ซ้ำใคร"', 'Give a factually TRUE answer that is as RARE as possible.')}</li>
+                  <li>• {t('ห้ามตอบคำที่อยู่ในรายการ "คำต้องห้าม (Banned)"', 'Never submit a word on the Banned list.')}</li>
+                  <li>• {t('ในโหมด Multiplayer ถ้าตอบซ้ำกับเพื่อน = อดคะแนนทั้งคู่!', 'In Multiplayer, matching another player = 0 pts for both!')}</li>
+                </ul>
               </div>
-              <div className="grid sm:grid-cols-2 gap-2">
-                {Object.values(roomData.players || {}).map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between bg-slate-950 border border-slate-800 px-3.5 py-2.5 rounded-xl text-sm"
+
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+                <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-amber-400" />
+                  {t('อันดับคะแนนสูงสุด (Solo)', 'Top Solo Leaderboard')}
+                </h3>
+                {leaderboard.length === 0 ? (
+                  <p className="text-xs text-slate-500">{t('ยังไม่มีสถิติ เริ่มเล่นเลย!', 'No scores yet.')}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {leaderboard.map((p, idx) => (
+                      <div
+                        key={p.id}
+                        className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs ${
+                          p.id === user.id ? 'bg-indigo-600/20 border border-indigo-500/40' : 'bg-slate-950/60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-black text-slate-500 w-5">#{idx + 1}</span>
+                          <span className="font-semibold truncate">{p.displayName || p.id}</span>
+                        </div>
+                        <span className="font-bold text-amber-400">{p.bestScore || 0}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            VIEW 2: SOLO RUN SCREEN
+           ========================================== */}
+        {view === 'solo' && soloState && (
+          <div className="max-w-2xl mx-auto space-y-5">
+            {/* Top Stats */}
+            <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-sm">
+              <div className="font-bold">
+                {t('ข้อที่', 'Round')} {soloState.round}
+                {soloState.mode !== 'survival' ? ` / ${soloState.maxRounds}` : ''}
+              </div>
+              {soloState.mode === 'survival' && (
+                <div className="text-rose-400 font-bold">
+                  {'❤️'.repeat(Math.max(0, soloState.lives))}
+                </div>
+              )}
+              {soloState.timeLimit > 0 && soloState.status === 'playing' && (
+                <div className={`font-mono font-bold flex items-center gap-1 ${soloTimer <= 5 ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`}>
+                  <Clock className="w-4 h-4" />
+                  {soloTimer}s
+                </div>
+              )}
+              <div className="font-black text-indigo-400">
+                {soloState.score} {t('คะแนน', 'pts')}
+              </div>
+            </div>
+
+            {soloState.status === 'loading' && (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
+                <Loader2 className="w-8 h-8 text-indigo-400 animate-spin mx-auto" />
+                <p className="text-slate-300 font-medium">{t('AI กำลังสร้างคำถาม...', 'Generating question...')}</p>
+              </div>
+            )}
+
+            {(soloState.status === 'playing' || soloState.status === 'grading') && soloState.question && (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                    {t('คำถาม', 'Question')}
+                  </span>
+                  <h2 className="text-2xl font-black mt-1 leading-snug">{soloState.question.question}</h2>
+                  {soloState.question.hint && (
+                    <p className="text-xs text-slate-400 mt-1.5">{soloState.question.hint}</p>
+                  )}
+                </div>
+
+                {soloState.question.defaultBans?.length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30">
+                    <div className="text-xs font-bold text-rose-300 mb-2 flex items-center gap-1.5">
+                      <Ban className="w-4 h-4" />
+                      {t('คำต้องห้าม (ห้ามตอบคำเหล่านี้):', 'Banned Obvious Answers:')}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {soloState.question.defaultBans.map((b, i) => (
+                        <span key={i} className="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-200 text-xs font-semibold">
+                          {b}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    submitSoloAnswer(false);
+                  }}
+                  className="flex gap-2"
+                >
+                  <input
+                    type="text"
+                    value={soloAnswer}
+                    onChange={(e) => setSoloAnswer(e.target.value)}
+                    disabled={soloState.status === 'grading'}
+                    placeholder={t('พิมพ์คำตอบที่แรร์ที่สุดของคุณ...', 'Type your rarest valid answer...')}
+                    className="flex-1 px-4 py-3.5 rounded-2xl bg-slate-950 border border-slate-700 focus:border-indigo-500 focus:outline-none text-white"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={soloState.status === 'grading' || !soloAnswer.trim()}
+                    className="px-5 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 font-bold text-white flex items-center gap-2"
                   >
-                    <span className="font-medium">
-                      {p.avatar} {p.handle}
-                    </span>
-                    {p.id === roomData.hostId && (
-                      <span className="text-[11px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full">
-                        HOST
-                      </span>
+                    {soloState.status === 'grading' ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
                     )}
+                    {t('ส่ง', 'Submit')}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {soloState.status === 'result' && soloState.lastResult && (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {soloState.lastResult.status === 'valid' ? (
+                      <CheckCircle className="w-7 h-7 text-emerald-400" />
+                    ) : (
+                      <XCircle className="w-7 h-7 text-rose-400" />
+                    )}
+                    <div>
+                      <div className="font-black text-lg">
+                        {soloState.lastResult.status === 'valid'
+                          ? t(`ถูกต้อง! +${soloState.lastResult.points} คะแนน`, `Valid! +${soloState.lastResult.points} pts`)
+                          : t('อดคะแนน (0 คะแนน)', '0 Points')}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {t('คำตอบของคุณ:', 'Your answer:')} <span className="text-white font-semibold">{soloState.lastResult.answer}</span>
+                      </div>
+                    </div>
+                  </div>
+                  {soloState.lastResult.status === 'valid' && (
+                    <div className="text-right">
+                      <div className="text-xs text-slate-400">{t('ความแรร์', 'Rarity')}</div>
+                      <div className="text-2xl font-black text-amber-400">{soloState.lastResult.rarity}/100</div>
+                    </div>
+                  )}
+                </div>
+
+                <p className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-sm text-slate-300">
+                  {soloState.lastResult.reason}
+                </p>
+
+                <button
+                  onClick={nextSoloRound}
+                  className="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-2"
+                >
+                  {t('ข้อถัดไป', 'Next Round')}
+                  <ArrowRight className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+
+            {soloState.status === 'finished' && (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-center space-y-5">
+                <Trophy className="w-12 h-12 text-amber-400 mx-auto" />
+                <div>
+                  <h2 className="text-2xl font-black">{t('จบเกม Solo!', 'Solo Run Complete!')}</h2>
+                  <p className="text-4xl font-black text-indigo-400 mt-2">
+                    {soloState.score} <span className="text-base text-slate-400">{t('คะแนน', 'pts')}</span>
+                  </p>
+                </div>
+
+                <div className="space-y-2 text-left max-h-64 overflow-y-auto">
+                  {soloState.history.map((h, i) => (
+                    <div key={i} className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs flex justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-slate-400 truncate">{i + 1}. {h.question}</div>
+                        <div className="font-bold text-white mt-0.5">{h.answer}</div>
+                      </div>
+                      <span className={`font-black shrink-0 ${h.points > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        +{h.points}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={startSoloGame}
+                    className="py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    {t('เล่นอีกครั้ง', 'Play Again')}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setView('home');
+                      setSoloState(null);
+                    }}
+                    className="py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-200"
+                  >
+                    {t('กลับหน้าหลัก', 'Back Home')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ==========================================
+            VIEW 3: MULTIPLAYER ROOM
+           ========================================== */}
+        {view === 'multi' && room && (
+          <div className="space-y-5">
+            {/* Room Top Bar + Clear 5-Step Progress */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="px-3.5 py-1.5 rounded-xl bg-indigo-600/20 border border-indigo-500/40 font-mono font-black text-indigo-300 tracking-widest">
+                    {room.code}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {isHost ? (
+                      <span className="text-amber-400 font-bold flex items-center gap-1">
+                        <Crown className="w-3.5 h-3.5" /> {t('คุณคือหัวห้อง', 'You are Host')}
+                      </span>
+                    ) : (
+                      <span>{t('ผู้เล่นในห้อง', 'Player')} • {activePlayerIds.length} {t('คน', 'online')}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={copyInviteLink}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5"
+                  >
+                    {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Link2 className="w-3.5 h-3.5 text-indigo-400" />}
+                    {copiedLink ? t('คัดลอกแล้ว!', 'Copied!') : t('คัดลอกลิงก์', 'Copy Link')}
+                  </button>
+                  <button
+                    onClick={() => setShowQrModal(true)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold flex items-center gap-1.5"
+                  >
+                    <QrCode className="w-3.5 h-3.5 text-indigo-400" />
+                    QR
+                  </button>
+                  <button
+                    onClick={handleLeaveRoom}
+                    className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 text-xs font-bold"
+                  >
+                    {t('ออกห้อง', 'Leave')}
+                  </button>
+                </div>
+              </div>
+
+              {/* 5-Step Progress Bar */}
+              <div className="grid grid-cols-5 gap-1.5">
+                {mpPhases.map((p, idx) => (
+                  <div
+                    key={p.key}
+                    className={`py-1.5 px-2 rounded-lg text-center text-[11px] font-bold truncate transition ${
+                      idx === activePhaseIndex
+                        ? 'bg-indigo-600 text-white'
+                        : idx < activePhaseIndex
+                        ? 'bg-emerald-500/20 text-emerald-300'
+                        : 'bg-slate-950 text-slate-500'
+                    }`}
+                  >
+                    {lang === 'th' ? p.th : p.en}
                   </div>
                 ))}
               </div>
             </div>
 
-            {isHost ? (
-              <button
-                onClick={startOnlineMatch}
-                disabled={Object.keys(roomData.players || {}).length < 2 || Boolean(loadingMsg)}
-                className="w-full bg-gradient-to-r from-indigo-600 to-fuchsia-600 disabled:opacity-50 text-white font-bold py-3 rounded-xl"
-              >
-                {loadingMsg ||
-                  (Object.keys(roomData.players || {}).length < 2
-                    ? lang === 'th'
-                      ? 'รอเพื่อนเข้าห้องอย่างน้อย 2 คน...'
-                      : 'Waiting for at least 2 players...'
-                    : lang === 'th'
-                    ? 'เริ่มเกมออนไลน์!'
-                    : 'Start Online Match!')}
-              </button>
-            ) : (
-              <div className="text-center text-sm text-slate-400 py-2">
-                {lang === 'th' ? 'รอหัวหน้าห้อง (Host) กดเริ่มเกม...' : 'Waiting for Host to start the match...'}
+            {/* Preview URL Warning for Host */}
+            {isVercelPreviewUrl && room.status === 'lobby' && (
+              <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2.5">
+                <ShieldAlert className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+                <div>
+                  <span className="font-bold">{t('คำเตือนลิงก์ Vercel Preview:', 'Vercel Preview URL detected:')}</span>{' '}
+                  {t(
+                    'ตอนนี้คุณเปิดจากลิงก์ Preview เพื่อนที่สแกน QR อาจติดหน้า Login ของ Vercel ให้เปิดเว็บจากโดเมนหลัก (Production Domain) หรือปิด Vercel Authentication ใน Settings → Deployment Protection',
+                    'Friends opening this Preview URL may be asked to log into Vercel. Use your main Production domain or disable Vercel Authentication in Deployment Protection.'
+                  )}
+                </div>
               </div>
             )}
-          </div>
-        )}
 
-        {/* PHASE: TOPIC VETO (MULTIPLAYER) */}
-        {phase === 'TOPIC_VETO' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 px-3 py-1 rounded-full flex items-center gap-1.5">
-                <Ban className="w-3.5 h-3.5"/>
-                {lang === 'th' ? `รอบที่ ${activeRoundNum}/${activeTotalRounds} • แบนหัวข้อ` : `Round ${activeRoundNum}/${activeTotalRounds} • Topic Veto`}
-              </span>
-            </div>
-
-            {gameMode === 'party' && !partyCurtainOpen ? (
-              <div className="py-10 text-center space-y-4">
-                <EyeOff className="w-10 h-10 text-indigo-400 mx-auto"/>
-                <div className="text-lg font-bold">
-                  {lang === 'th'
-                    ? `ส่งเครื่องให้ ${getPartyVetoVoters(partyPlayersState)[partyTurnIndex]?.name}`
-                    : `Pass device to ${getPartyVetoVoters(partyPlayersState)[partyTurnIndex]?.name}`}
-                </div>
-                <button
-                  onClick={() => setPartyCurtainOpen(true)}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl"
-                >
-                  {lang === 'th' ? 'พร้อมแบนหัวข้อ' : 'Ready to Ban'}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <p className="text-sm text-slate-300">
-                  {lang === 'th'
-                    ? 'เลือกแบนทิ้ง 1 หัวข้อที่ไม่อยากเล่น (หัวข้อที่โดนแบนน้อยที่สุดจะถูกนำมาสร้างโจทย์):'
-                    : 'Select 1 topic to BAN (the topic with the fewest ban votes will be played):'}
-                </p>
-                <div className="grid sm:grid-cols-3 gap-3">
-                  {(gameMode === 'online' ? roomData?.topicCandidates || [] : topicCandidates).map((topic, idx) => (
+            {/* Host Error Recovery Bar */}
+            {hostGradingError && isHost && (
+              <div className="p-4 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-200 text-sm flex flex-wrap items-center justify-between gap-3">
+                <span>{t(`เกิดข้อผิดพลาดจาก AI: ${hostGradingError}`, `AI Error: ${hostGradingError}`)}</span>
+                <div className="flex gap-2">
+                  {room.status === 'grading' && (
                     <button
-                      key={idx}
-                      disabled={Boolean(loadingMsg) || (gameMode === 'online' && onlineVetoChoice !== null)}
-                      onClick={() => (gameMode === 'online' ? submitOnlineVeto(idx) : handlePartyVetoPick(idx))}
-                      className={`p-4 rounded-xl border text-left transition ${
-                        gameMode === 'online' && onlineVetoChoice === idx
-                          ? 'bg-rose-950/60 border-rose-500 text-rose-200'
-                          : 'bg-slate-950 border-slate-800 hover:border-rose-500/60'
+                      onClick={() => hostGradeRound(true)}
+                      className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" /> {t('ตรวจใหม่', 'Retry')}
+                    </button>
+                  )}
+                  <button
+                    onClick={hostBackToLobby}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold"
+                  >
+                    {t('กลับห้องรอ', 'Back to Lobby')}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ------------------------------------------
+                MP PHASE 1: LOBBY
+               ------------------------------------------ */}
+            {room.status === 'lobby' && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* Players + Kick/Ban Manager */}
+                <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
+                  <div className="flex items-center justify-between">
+                    <h2 className="font-black text-lg flex items-center gap-2">
+                      <Users className="w-5 h-5 text-indigo-400" />
+                      {t('ผู้เล่นในห้อง', 'Players')} ({sortedPlayers.length})
+                    </h2>
+                    {!isHost && (
+                      <button
+                        onClick={handleToggleReady}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                          room.players?.[user.id]?.ready
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                        }`}
+                      >
+                        {room.players?.[user.id]?.ready ? t('✓ พร้อมแล้ว', '✓ Ready') : t('กดพร้อม', 'Mark Ready')}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {sortedPlayers.map((p) => {
+                      const pIsHost = p.id === room.hostId;
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-950 border border-slate-800"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-600/20 text-indigo-300 font-black flex items-center justify-center uppercase">
+                              {(p.name || p.id).slice(0, 2)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="font-bold text-sm flex items-center gap-1.5 truncate">
+                                {p.name || p.id}
+                                {pIsHost && <Crown className="w-4 h-4 text-amber-400 shrink-0" />}
+                                {p.id === user.id && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                                    {t('คุณ', 'You')}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-xs text-slate-400">
+                                {pIsHost
+                                  ? t('หัวห้อง', 'Host')
+                                  : p.ready
+                                  ? t('พร้อมเล่นแล้ว', 'Ready')
+                                  : t('กำลังรอ...', 'Waiting...')}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Host Kick / Ban buttons */}
+                          {isHost && p.id !== user.id && (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                onClick={() => handleKickPlayer(p.id)}
+                                title={t('เตะออก (เข้าใหม่ได้)', 'Kick player')}
+                                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-amber-600/30 text-slate-300 hover:text-amber-300 text-xs font-bold flex items-center gap-1"
+                              >
+                                <UserX className="w-3.5 h-3.5" />
+                                {t('เตะ', 'Kick')}
+                              </button>
+                              <button
+                                onClick={() => handleBanPlayer(p.id)}
+                                title={t('แบนถาวร (ห้ามเข้าห้องนี้)', 'Ban player')}
+                                className="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-600 text-rose-300 hover:text-white text-xs font-bold flex items-center gap-1 transition"
+                              >
+                                <Ban className="w-3.5 h-3.5" />
+                                {t('แบน', 'Ban')}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Banned Players Management (Host Only) */}
+                  {isHost && Array.isArray(room.bannedIds) && room.bannedIds.length > 0 && (
+                    <div className="pt-4 border-t border-slate-800">
+                      <div className="text-xs font-bold text-rose-400 mb-2 flex items-center gap-1.5">
+                        <Ban className="w-4 h-4" />
+                        {t('รายชื่อผู้เล่นที่ถูกแบน', 'Banned Players')} ({room.bannedIds.length})
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {room.bannedIds.map((bid) => (
+                          <div
+                            key={bid}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs"
+                          >
+                            <span className="text-rose-200 font-semibold">{bid}</span>
+                            <button
+                              onClick={() => handleUnbanPlayer(bid)}
+                              className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-0.5"
+                            >
+                              <Unlock className="w-3 h-3" /> {t('ปลดแบน', 'Unban')}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column: Room Settings & Start */}
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+                  <h3 className="font-black text-base">{t('ตั้งค่าห้อง', 'Room Settings')}</h3>
+
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1.5">{t('หมวดหมู่', 'Category')}</label>
+                    <select
+                      value={room.category || 'general'}
+                      disabled={!isHost}
+                      onChange={(e) => handleUpdateRoomSetting({ category: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs disabled:opacity-60"
+                    >
+                      {CATEGORIES.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {lang === 'th' ? c.th : c.en}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1.5">{t('จำนวนข้อ', 'Rounds')}</label>
+                      <select
+                        value={room.totalRounds || 5}
+                        disabled={!isHost}
+                        onChange={(e) => handleUpdateRoomSetting({ totalRounds: Number(e.target.value) })}
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs disabled:opacity-60"
+                      >
+                        {[3, 5, 7, 10].map((n) => (
+                          <option key={n} value={n}>
+                            {n} {t('ข้อ', 'Rounds')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-slate-400 mb-1.5">{t('เวลาตอบ', 'Answer Time')}</label>
+                      <select
+                        value={room.answerTime || 30}
+                        disabled={!isHost}
+                        onChange={(e) => handleUpdateRoomSetting({ answerTime: Number(e.target.value) })}
+                        className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs disabled:opacity-60"
+                      >
+                        {[20, 30, 45, 60].map((s) => (
+                          <option key={s} value={s}>
+                            {s} {t('วิ', 'sec')}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Toggle Answer Ban Phase */}
+                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-bold flex items-center gap-1.5">
+                        <Ban className="w-3.5 h-3.5 text-rose-400" />
+                        {t('ช่วงแบนคำตอบก่อนทาย', 'Pre-Round Ban Phase')}
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-0.5">
+                        {t('ให้ทุกคนแบนคำตอบคนละ 1 คำก่อนเริ่มทาย', 'Each player bans 1 obvious answer first')}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={!isHost}
+                      onClick={() => handleUpdateRoomSetting({ enableBanPhase: !room.enableBanPhase })}
+                      className={`w-12 h-7 rounded-full transition relative shrink-0 disabled:opacity-60 ${
+                        room.enableBanPhase ? 'bg-indigo-600' : 'bg-slate-700'
                       }`}
                     >
-                      <div className="text-xs text-rose-400 font-bold mb-1">BAN #{idx + 1}</div>
-                      <div className="font-bold text-sm">{topic}</div>
+                      <span
+                        className={`block w-5 h-5 rounded-full bg-white absolute top-1 transition ${
+                          room.enableBanPhase ? 'left-6' : 'left-1'
+                        }`}
+                      />
                     </button>
-                  ))}
+                  </div>
+
+                  {isHost ? (
+                    <button
+                      onClick={() => hostStartRound(1, true)}
+                      className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 font-bold text-white flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20"
+                    >
+                      <Play className="w-5 h-5" />
+                      {t('เริ่มเกมเลย!', 'Start Game')}
+                    </button>
+                  ) : (
+                    <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 text-center text-xs text-indigo-300 font-medium">
+                      {t('รอหัวห้องกดเริ่มเกม...', 'Waiting for host to start...')}
+                    </div>
+                  )}
                 </div>
-                {loadingMsg && <div className="text-center text-sm text-indigo-300">{loadingMsg}</div>}
-                {gameMode === 'online' && onlineVetoChoice !== null && (
-                  <div className="text-center text-xs text-slate-400">
-                    {lang === 'th' ? 'ส่งโหวตแบนแล้ว รอผู้เล่นอื่น...' : 'Ban vote submitted. Waiting for others...'}
+              </div>
+            )}
+
+            {/* ------------------------------------------
+                MP PHASE: GENERATING QUESTION
+               ------------------------------------------ */}
+            {room.status === 'generating' && (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-3">
+                <Loader2 className="w-10 h-10 text-indigo-400 animate-spin mx-auto" />
+                <h2 className="text-xl font-black">
+                  {t(`กำลังเตรียมคำถามข้อที่ ${room.round}...`, `Preparing Round ${room.round}...`)}
+                </h2>
+              </div>
+            )}
+
+            {/* ------------------------------------------
+                MP PHASE 2: BANNING PHASE (NO HANG!)
+               ------------------------------------------ */}
+            {room.status === 'banning' && room.question && (
+              <div className="max-w-2xl mx-auto bg-slate-900 border border-rose-500/30 rounded-3xl p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <span className="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold flex items-center gap-1.5">
+                    <Ban className="w-3.5 h-3.5" />
+                    {t(`ข้อ ${room.round}/${room.totalRounds} • ช่วงแบนคำตอบ`, `Round ${room.round}/${room.totalRounds} • Ban Phase`)}
+                  </span>
+                  <div className={`font-mono font-black text-lg flex items-center gap-1.5 ${mpTimeLeft <= 5 ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`}>
+                    <Clock className="w-5 h-5" />
+                    {mpTimeLeft}s
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-slate-400 mb-1">{t('คำถามรอบนี้คือ:', 'This round question:')}</div>
+                  <h2 className="text-2xl font-black leading-snug">{room.question.question}</h2>
+                </div>
+
+                <div className="text-xs text-slate-400">
+                  {t('ส่งคำแบนแล้ว:', 'Banned submitted:')}{' '}
+                  <span className="text-white font-bold">
+                    {activePlayerIds.filter((pid) => Boolean(room.bans?.[pid])).length} / {activePlayerIds.length}
+                  </span>
+                </div>
+
+                {room.bans?.[user.id] ? (
+                  <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 text-sm flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 shrink-0" />
+                    <span>
+                      {room.bans[user.id].skipped
+                        ? t('คุณเลือกข้ามการแบน รอเพื่อนคนอื่นสักครู่...', 'You skipped banning. Waiting for others...')
+                        : t(`คุณแบนคำว่า "${room.bans[user.id].word}" แล้ว รอเพื่อนคนอื่น...`, `You banned "${room.bans[user.id].word}". Waiting for others...`)}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-rose-200">
+                      {t('พิมพ์ 1 คำตอบที่คิดว่าเป็นคำฮิต เพื่อแบนไม่ให้ใครใช้ในรอบนี้:', 'Type 1 obvious answer to ban for this round:')}
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={mpBanInput}
+                        onChange={(e) => setMpBanInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && mpBanInput.trim()) handleSubmitBan(false);
+                        }}
+                        placeholder={t('พิมพ์คำที่อยากแบน...', 'Type a word to ban...')}
+                        className="flex-1 px-4 py-3 rounded-2xl bg-slate-950 border border-slate-700 focus:border-rose-500 focus:outline-none text-white"
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => handleSubmitBan(false)}
+                        disabled={!mpBanInput.trim()}
+                        className="px-5 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 font-bold text-white"
+                      >
+                        {t('แบนคำนี้', 'Ban')}
+                      </button>
+                      <button
+                        onClick={() => handleSubmitBan(true)}
+                        className="px-4 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300"
+                      >
+                        {t('ข้าม', 'Skip')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {isHost && (
+                  <div className="pt-3 border-t border-slate-800 flex justify-end">
+                    <button
+                      onClick={hostAdvanceToAnswering}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-indigo-600 text-xs font-bold text-slate-200 flex items-center gap-1.5 transition"
+                    >
+                      <SkipForward className="w-4 h-4" />
+                      {t('เริ่มช่วงตอบคำถามเลย (หัวห้อง)', 'Force Start Answering')}
+                    </button>
                   </div>
                 )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* PHASE: ANSWERING */}
-        {phase === 'ANSWERING' && activeQuestionObj && (
-          <div className="space-y-4">
-            {/* HUD */}
-            <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-900 border border-slate-800 px-4 py-3 rounded-2xl text-xs">
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-indigo-300">
-                  {soloVariant === 'survival' && gameMode === 'solo'
-                    ? `Survival • Q${roundNum}`
-                    : `Round ${activeRoundNum}/${activeTotalRounds}`}
-                </span>
-                <span className="bg-slate-800 px-2.5 py-0.5 rounded-full text-slate-300">{poolDepth}</span>
-              </div>
-
-              {gameMode === 'solo' && (
-                <div className="flex items-center gap-4">
-                  {soloVariant === 'survival' && (
-                    <span className="font-bold text-rose-400">{'❤️'.repeat(soloHearts)}{'🖤'.repeat(3 - soloHearts)}</span>
-                  )}
-                  {soloStreak >= 2 && (
-                    <span className="text-amber-400 font-bold flex items-center gap-1">
-                      <Flame className="w-3.5 h-3.5"/> {soloStreak}x ({getStreakMultiplier(soloStreak)}x)
-                    </span>
-                  )}
-                  <span className="font-bold text-emerald-400 text-sm">{soloScore} pts</span>
-                </div>
-              )}
-            </div>
-
-            {/* Party Privacy Curtain */}
-            {gameMode === 'party' && !partyCurtainOpen ? (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center space-y-4">
-                <Lock className="w-10 h-10 text-fuchsia-400 mx-auto"/>
-                <div className="text-lg font-bold">
-                  {lang === 'th'
-                    ? `ส่งเครื่องให้ ${partyPlayersState[partyTurnIndex]?.avatar} ${partyPlayersState[partyTurnIndex]?.name}`
-                    : `Pass device to ${partyPlayersState[partyTurnIndex]?.avatar} ${partyPlayersState[partyTurnIndex]?.name}`}
-                </div>
-                <p className="text-xs text-slate-400">
-                  {lang === 'th' ? 'ห้ามแอบดูคำตอบเพื่อน!' : 'No peeking at other players!'}
-                </p>
-                <button
-                  onClick={() => setPartyCurtainOpen(true)}
-                  className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-bold px-6 py-2.5 rounded-xl"
-                >
-                  {lang === 'th' ? 'เปิดหน้าจอพิมพ์คำตอบ' : 'Reveal Prompt & Answer'}
-                </button>
-              </div>
-            ) : (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-5 shadow-xl">
-                <div className="space-y-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-fuchsia-400 bg-fuchsia-500/10 border border-fuchsia-500/30 px-2.5 py-1 rounded-full">
-                    {activeQuestionObj.category}
+            {/* ------------------------------------------
+                MP PHASE 3: ANSWERING PHASE
+               ------------------------------------------ */}
+            {room.status === 'answering' && room.question && (
+              <div className="max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <span className="px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold">
+                    {t(`ข้อ ${room.round} / ${room.totalRounds}`, `Round ${room.round} / ${room.totalRounds}`)}
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-bold leading-snug pt-1">
-                    {activeQuestionObj.question}
-                  </h2>
+                  <div className={`font-mono font-black text-xl flex items-center gap-1.5 ${mpTimeLeft <= 5 ? 'text-rose-400 animate-pulse' : 'text-amber-400'}`}>
+                    <Clock className="w-5 h-5" />
+                    {mpTimeLeft}s
+                  </div>
                 </div>
 
-                {hintText && (
-                  <div className="bg-amber-950/30 border border-amber-500/40 text-amber-200 text-xs p-3 rounded-xl flex items-center gap-2">
-                    <Lightbulb className="w-4 h-4 text-amber-400 shrink-0"/>
-                    <span>{hintText}</span>
-                  </div>
-                )}
+                <div>
+                  <h2 className="text-2xl font-black leading-snug">{room.question.question}</h2>
+                  {room.question.hint && <p className="text-xs text-slate-400 mt-1">{room.question.hint}</p>}
+                </div>
 
-                {/* Solo Lifelines */}
-                {gameMode === 'solo' && (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={!soloLifelines.reroll || Boolean(loadingMsg)}
-                      onClick={handleSoloReroll}
-                      className="text-xs bg-slate-950 hover:bg-slate-800 disabled:opacity-40 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5 text-sky-400"/>
-                      {lang === 'th' ? 'เปลี่ยนโจทย์ (1x)' : 'Reroll (1x)'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!soloLifelines.hint || hintUsedThisRound || Boolean(loadingMsg)}
-                      onClick={handleSoloHint}
-                      className="text-xs bg-slate-950 hover:bg-slate-800 disabled:opacity-40 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-1.5"
-                    >
-                      <Lightbulb className="w-3.5 h-3.5 text-amber-400"/>
-                      {lang === 'th' ? 'ขอคำใบ้ (-20%)' : 'Hint (-20%)'}
-                    </button>
-                  </div>
-                )}
-
-                {/* Answer Form */}
-                {gameMode === 'online' && onlineSubmitted ? (
-                  <div className="bg-emerald-950/30 border border-emerald-500/40 rounded-xl p-4 text-center space-y-1">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto"/>
-                    <div className="font-bold text-sm text-emerald-200">
-                      {lang === 'th' ? 'ส่งคำตอบเรียบร้อยแล้ว!' : 'Answer Locked In!'}
+                {/* All Active Banned Words */}
+                {room.bannedWords?.length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30">
+                    <div className="text-xs font-bold text-rose-300 mb-2 flex items-center gap-1.5">
+                      <Ban className="w-4 h-4" />
+                      {t('คำต้องห้ามรอบนี้ (ตอบโดน = 0 คะแนน):', 'Banned Words This Round (0 pts):')}
                     </div>
-                    <div className="text-xs text-slate-400">
-                      {lang === 'th'
-                        ? `รอเพื่อนส่งคำตอบ (${Object.keys(roomData?.submissions || {}).length}/${Object.keys(roomData?.players || {}).length} คน)`
-                        : `Waiting for players (${Object.keys(roomData?.submissions || {}).length}/${Object.keys(roomData?.players || {}).length} submitted)`}
+                    <div className="flex flex-wrap gap-2">
+                      {room.bannedWords.map((w, idx) => (
+                        <span key={idx} className="px-2.5 py-1 rounded-lg bg-rose-500/25 text-rose-100 text-xs font-bold">
+                          {w}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Submission Form or Submitted Confirmation */}
+                {room.submissions?.[user.id] ? (
+                  <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 space-y-1">
+                    <div className="text-emerald-300 font-bold text-sm flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5" />
+                      {t('ส่งคำตอบแล้ว!', 'Answer Submitted!')}
+                    </div>
+                    <div className="text-xs text-slate-300">
+                      {t('คำตอบของคุณ:', 'Your answer:')} <span className="font-bold text-white">{room.submissions[user.id].text}</span>
                     </div>
                   </div>
                 ) : (
-                  <form
-                    onSubmit={
-                      gameMode === 'solo'
-                        ? handleSoloSubmit
-                        : gameMode === 'party'
-                        ? handlePartyAnswerSubmit
-                        : submitOnlineAnswer
-                    }
-                    className="space-y-4"
-                  >
+                  <form onSubmit={handleSubmitMpAnswer} className="flex gap-2">
                     <input
                       type="text"
-                      value={
-                        gameMode === 'solo'
-                          ? soloAnswer
-                          : gameMode === 'party'
-                          ? partyTempAnswer
-                          : onlineAnswer
-                      }
-                      onChange={(e) =>
-                        gameMode === 'solo'
-                          ? setSoloAnswer(e.target.value)
-                          : gameMode === 'party'
-                          ? setPartyTempAnswer(e.target.value)
-                          : setOnlineAnswer(e.target.value)
-                      }
-                      placeholder={
-                        lang === 'th'
-                          ? 'พิมพ์คำตอบที่ถูกต้องและแรร์ที่สุด...'
-                          : 'Enter your most obscure valid answer...'
-                      }
-                      className="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-4 py-3 text-base focus:outline-none"
+                      value={mpAnswer}
+                      onChange={(e) => setMpAnswer(e.target.value)}
+                      placeholder={t('พิมพ์คำตอบที่ถูกและไม่ซ้ำใคร...', 'Type a rare, unique valid answer...')}
+                      className="flex-1 px-4 py-3.5 rounded-2xl bg-slate-950 border border-slate-700 focus:border-indigo-500 focus:outline-none text-white"
+                      autoFocus
                     />
-
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <label className="flex items-center gap-2 cursor-pointer text-xs bg-amber-950/30 border border-amber-500/40 px-3 py-2 rounded-xl">
-                        <input
-                          type="checkbox"
-                          checked={
-                            gameMode === 'solo'
-                              ? soloWager
-                              : gameMode === 'party'
-                              ? partyTempWager
-                              : onlineWager
-                          }
-                          onChange={(e) =>
-                            gameMode === 'solo'
-                              ? setSoloWager(e.target.checked)
-                              : gameMode === 'party'
-                              ? setPartyTempWager(e.target.checked)
-                              : setOnlineWager(e.target.checked)
-                          }
-                          className="accent-amber-500"
-                        />
-                        <Coins className="w-4 h-4 text-amber-400"/>
-                        <span className="font-semibold text-amber-200">
-                          {lang === 'th' ? 'เดิมพัน x2 (ต้องได้ Epic ขึ้นไป)' : 'Double or Nothing (Epic+ required)'}
-                        </span>
-                      </label>
-
-                      <button
-                        type="submit"
-                        disabled={Boolean(loadingMsg)}
-                        className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold px-6 py-2.5 rounded-xl transition"
-                      >
-                        {loadingMsg || (lang === 'th' ? 'ส่งคำตอบ' : 'Lock In Answer')}
-                      </button>
-                    </div>
+                    <button
+                      type="submit"
+                      disabled={!mpAnswer.trim()}
+                      className="px-5 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 font-bold text-white flex items-center gap-2"
+                    >
+                      <Send className="w-5 h-5" />
+                      {t('ส่ง', 'Send')}
+                    </button>
                   </form>
+                )}
+
+                {/* Live Submission Status per Player */}
+                <div className="pt-3 border-t border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between text-xs text-slate-400">
+                    <span>
+                      {t('สถานะการส่งคำตอบ:', 'Submissions:')}{' '}
+                      <strong className="text-white">
+                        {activePlayerIds.filter((pid) => Boolean(room.submissions?.[pid])).length} / {activePlayerIds.length}
+                      </strong>
+                    </span>
+                    {isHost && (
+                      <button
+                        onClick={() => hostGradeRound(false)}
+                        className="text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1"
+                      >
+                        <SkipForward className="w-3.5 h-3.5" />
+                        {t('ปิดรับและตรวจเลย', 'Grade Now')}
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {sortedPlayers.map((p) => {
+                      const done = Boolean(room.submissions?.[p.id]);
+                      return (
+                        <span
+                          key={p.id}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 ${
+                            done
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-slate-950 text-slate-400 border border-slate-800'
+                          }`}
+                        >
+                          {done ? '✓' : '…'} {p.name || p.id}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ------------------------------------------
+                MP PHASE: GRADING
+               ------------------------------------------ */}
+            {room.status === 'grading' && (
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-4">
+                <Loader2 className="w-10 h-10 text-amber-400 animate-spin mx-auto" />
+                <h2 className="text-xl font-black">{t('AI กำลังตรวจความถูกต้องและความแรร์...', 'AI is grading answers...')}</h2>
+                {isHost && (
+                  <button
+                    onClick={() => hostGradeRound(true)}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 inline-flex items-center gap-1.5"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    {t('กดตรวจซ้ำถ้ารอนานเกิน 10 วิ', 'Retry if stuck')}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ------------------------------------------
+                MP PHASE 4: ROUND RESULTS
+               ------------------------------------------ */}
+            {room.status === 'results' && room.roundResults && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+                  <div>
+                    <div className="text-xs font-bold text-indigo-400">
+                      {t(`ผลลัพธ์ข้อที่ ${room.round} / ${room.totalRounds}`, `Round ${room.round} Results`)}
+                    </div>
+                    <h2 className="text-xl font-black mt-0.5">{room.question?.question}</h2>
+                  </div>
+
+                  <div className="space-y-3">
+                    {sortedPlayers.map((p) => {
+                      const res = room.roundResults[p.id];
+                      if (!res) return null;
+                      const badge =
+                        res.status === 'valid'
+                          ? { cls: 'bg-emerald-500/20 text-emerald-300', label: t(`✅ ถูกต้อง (+${res.points})`, `✅ Valid (+${res.points})`) }
+                          : res.status === 'duplicate'
+                          ? { cls: 'bg-amber-500/20 text-amber-300', label: t('👯 ใจตรงกัน! ซ้ำ (0)', '👯 Duplicate (0)') }
+                          : res.status === 'banned'
+                          ? { cls: 'bg-rose-500/20 text-rose-300', label: t('🚫 โดนคำต้องห้าม (0)', '🚫 Banned (0)') }
+                          : { cls: 'bg-slate-800 text-slate-400', label: t('❌ ไม่ผ่าน (0)', '❌ Invalid (0)') };
+
+                      return (
+                        <div key={p.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-sm">{p.name || p.id}</span>
+                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${badge.cls}`}>{badge.label}</span>
+                          </div>
+                          <div className="text-base font-black text-white">{res.answer}</div>
+                          {res.reason && <div className="text-xs text-slate-400">{res.reason}</div>}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {isHost ? (
+                    <button
+                      onClick={hostNextStepFromResults}
+                      className="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-2"
+                    >
+                      {room.round >= (room.totalRounds || 5)
+                        ? t('ดูสรุปผู้ชนะ!', 'View Final Podium!')
+                        : t('ไปข้อถัดไป', 'Next Round')}
+                      <ArrowRight className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <div className="p-3 rounded-2xl bg-slate-950 text-center text-xs text-slate-400">
+                      {t('รอหัวห้องกดไปข้อถัดไป...', 'Waiting for host to continue...')}
+                    </div>
+                  )}
+                </div>
+
+                {/* Live Standings */}
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-3 h-fit">
+                  <h3 className="font-black text-base flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-amber-400" />
+                    {t('ตารางคะแนนรวม', 'Standings')}
+                  </h3>
+                  <div className="space-y-2">
+                    {sortedPlayers.map((p, idx) => (
+                      <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-950 text-sm">
+                        <span className="font-bold truncate">
+                          #{idx + 1} {p.name || p.id}
+                        </span>
+                        <span className="font-black text-amber-400">{p.score || 0}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ------------------------------------------
+                MP PHASE 5: FINAL PODIUM
+               ------------------------------------------ */}
+            {room.status === 'finished' && (
+              <div className="max-w-xl mx-auto bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center space-y-6">
+                <Trophy className="w-14 h-14 text-amber-400 mx-auto" />
+                <div>
+                  <h2 className="text-3xl font-black">{t('สรุปผู้ชนะ!', 'Final Results!')}</h2>
+                  {sortedPlayers[0] && (
+                    <p className="text-indigo-300 font-bold mt-2">
+                      👑 {sortedPlayers[0].name || sortedPlayers[0].id} — {sortedPlayers[0].score || 0} {t('คะแนน', 'pts')}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2.5 text-left">
+                  {sortedPlayers.map((p, idx) => (
+                    <div
+                      key={p.id}
+                      className={`flex items-center justify-between p-4 rounded-2xl border ${
+                        idx === 0
+                          ? 'bg-amber-500/15 border-amber-500/40'
+                          : 'bg-slate-950 border-slate-800'
+                      }`}
+                    >
+                      <div className="font-bold flex items-center gap-2">
+                        <span className="text-lg">
+                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                        </span>
+                        <span>{p.name || p.id}</span>
+                      </div>
+                      <span className="font-black text-amber-400 text-lg">{p.score || 0}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {isHost ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => hostStartRound(1, true)}
+                      className="py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 font-bold text-white flex items-center justify-center gap-2"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      {t('เล่นอีกรอบ', 'Play Again')}
+                    </button>
+                    <button
+                      onClick={hostBackToLobby}
+                      className="py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 font-bold text-slate-200"
+                    >
+                      {t('กลับห้องรอ', 'Lobby')}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400">{t('รอหัวห้องเริ่มเกมใหม่หรือกลับห้องรอ...', 'Waiting for host...')}</p>
                 )}
               </div>
             )}
           </div>
         )}
-
-        {/* PHASE: JUDGING */}
-        {phase === 'JUDGING' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center space-y-3">
-            <Sparkles className="w-10 h-10 text-fuchsia-400 animate-spin mx-auto"/>
-            <div className="font-bold text-lg">
-              {loadingMsg || (lang === 'th' ? 'AI กรรมการกำลังประเมินความแรร์...' : 'AI Referee evaluating all submissions...')}
-            </div>
-          </div>
-        )}
-
-        {/* PHASE: REVEAL (SOLO) */}
-        {phase === 'REVEAL' && gameMode === 'solo' && soloResult && (
-          <div className="space-y-4">
-            {(() => {
-              const rc = RARITY_CONFIG[soloResult.rarityTier] || RARITY_CONFIG.Invalid;
-              return (
-                <div className={`rounded-2xl border-2 ${rc.border} ${rc.bg} p-6 space-y-4 shadow-2xl`}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className={`text-xs font-black uppercase px-3 py-1 rounded-full border ${rc.badge}`}>
-                      {soloResult.rarityTier} {lang === 'th' ? `• ${rc.labelTh}` : ''}
-                    </span>
-                    <span className="text-2xl font-black text-white">+{soloResult.finalPoints} pts</span>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-slate-400">{lang === 'th' ? 'คำตอบของคุณ' : 'Your Answer'}</div>
-                    <div className="text-2xl font-extrabold text-white">{soloResult.answer}</div>
-                  </div>
-
-                  {soloResult.hitForbiddenTop3 && soloResult.isValid && (
-                    <div className="bg-rose-950/70 border border-rose-500 text-rose-200 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-2">
-                      <ShieldAlert className="w-4 h-4 text-rose-400"/>
-                      {lang === 'th'
-                        ? 'กับดักคำตอบต้องห้าม Top 3! แต้มถูกหารครึ่งและสตรีคขาด'
-                        : 'FORBIDDEN TOP 3 TRAP TRIGGERED! Points halved & streak broken.'}
-                    </div>
-                  )}
-
-                  {soloResult.isValid && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-slate-300">
-                        <span>{lang === 'th' ? 'อัตราคนตอบซ้ำ (Mindshare)' : 'Estimated Public Mindshare'}</span>
-                        <span className="font-bold">~{soloResult.estimatedMindsharePercent}%</span>
-                      </div>
-                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-to-r from-fuchsia-500 to-amber-400"
-                          style={{ width: `${Math.min(100, Math.max(3, soloResult.estimatedMindsharePercent))}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <p className="text-sm text-slate-200 italic">"{soloResult.hostComment}"</p>
-                  <p className="text-xs text-slate-300">{soloResult.reason}</p>
-
-                  <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 text-xs space-y-1">
-                    <div className="font-bold text-amber-300">💡 Fun Fact</div>
-                    <div className="text-slate-300">{soloResult.funFact}</div>
-                  </div>
-
-                  <div className="grid sm:grid-cols-2 gap-2 text-xs">
-                    <div className="bg-slate-950/80 border border-slate-800 p-3 rounded-xl">
-                      <div className="text-rose-400 font-bold mb-1">
-                        {lang === 'th' ? 'กับดักยอดฮิต (Forbidden Top 3)' : 'Hidden Forbidden Top 3'}
-                      </div>
-                      <div className="text-slate-300">{(soloResult.forbiddenTop3 || []).join(', ')}</div>
-                    </div>
-                    <div className="bg-slate-950/80 border border-slate-800 p-3 rounded-xl">
-                      <div className="text-fuchsia-300 font-bold mb-1">
-                        {lang === 'th' ? 'ตัวอย่างระดับ Mythic' : 'Mythic-Tier Example'}
-                      </div>
-                      <div className="text-slate-200 font-semibold">{soloResult.mythicExample}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-
-            <button
-              onClick={handleSoloNext}
-              disabled={Boolean(loadingMsg)}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition"
-            >
-              {loadingMsg ||
-                ((soloVariant === 'survival' && soloHearts <= 0) ||
-                (soloVariant !== 'survival' && roundNum >= totalRounds)
-                  ? lang === 'th'
-                    ? 'ดูสรุปผลคะแนน'
-                    : 'View Final Summary'
-                  : lang === 'th'
-                  ? 'ข้อถัดไป'
-                  : 'Next Question')}
-            </button>
-          </div>
-        )}
-
-        {/* PHASE: REVEAL (MULTIPLAYER PARTY & ONLINE) */}
-        {phase === 'REVEAL' && gameMode !== 'solo' && (
-          <div className="space-y-4">
-            {activeMultiplayerResults.some((r) => r.isCollision) && (
-              <div className="bg-rose-950/70 border border-rose-500 text-rose-200 px-4 py-3 rounded-2xl text-sm font-bold flex items-center gap-2">
-                <Zap className="w-5 h-5 text-amber-400 shrink-0"/>
-                <span>
-                  {lang === 'th'
-                    ? '💥 ใจตรงกัน (Semantic Collision)! มีผู้เล่นตอบแนวคิดเดียวกัน โดนลงโทษตัดคะแนน!'
-                    : '💥 SEMANTIC COLLISION! Matching answers detected — collision penalty applied!'}
-                </span>
-              </div>
-            )}
-
-            <div className="grid sm:grid-cols-2 gap-3">
-              {activeMultiplayerResults.map((r, idx) => {
-                const isRevealed = gameMode === 'online' || idx < revealedCount;
-                const rc = RARITY_CONFIG[r.rarityTier] || RARITY_CONFIG.Invalid;
-
-                if (!isRevealed) {
-                  return (
-                    <button
-                      key={r.playerId}
-                      onClick={() => setRevealedCount((c) => c + 1)}
-                      className="bg-slate-900 border-2 border-dashed border-indigo-500/50 hover:border-indigo-400 rounded-2xl p-6 text-center space-y-2 transition"
-                    >
-                      <Eye className="w-6 h-6 text-indigo-400 mx-auto"/>
-                      <div className="font-bold">
-                        {r.playerAvatar} {r.playerName}
-                      </div>
-                      <div className="text-xs text-indigo-300">
-                        {lang === 'th' ? 'แตะเพื่อเปิดการ์ด!' : 'Tap to Reveal Card!'}
-                      </div>
-                    </button>
-                  );
-                }
-
-                return (
-                  <div key={r.playerId} className={`rounded-2xl border-2 ${rc.border} ${rc.bg} p-4 space-y-2`}>
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-sm">
-                        {r.playerAvatar} {r.playerName}
-                      </span>
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${rc.badge}`}>
-                        {r.rarityTier}
-                      </span>
-                    </div>
-                    <div className="text-lg font-extrabold text-white">{r.answer || '—'}</div>
-                    <div className="flex flex-wrap gap-1.5 text-[11px]">
-                      {r.isCollision && (
-                        <span className="bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 rounded">
-                          COLLISION
-                        </span>
-                      )}
-                      {r.hitForbiddenTop3 && r.isValid && (
-                        <span className="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded">
-                          TOP 3 TRAP
-                        </span>
-                      )}
-                      {r.wagered && (
-                        <span className="bg-purple-500/20 text-purple-300 border border-purple-500/40 px-2 py-0.5 rounded">
-                          WAGER x2
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-300">{r.reason}</p>
-                    <div className="text-right font-black text-base text-emerald-300">+{r.finalPoints} pts</div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {activeMultiplayerResults[0] && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs space-y-2">
-                <div className="text-slate-300">
-                  <strong className="text-amber-300">Fun Fact:</strong> {activeMultiplayerResults[0].funFact}
-                </div>
-                <div className="flex flex-wrap justify-between gap-2 text-slate-400 pt-1 border-t border-slate-800">
-                  <span>Top 3: {(activeQuestionObj?.forbiddenTop3 || []).join(', ')}</span>
-                  <span className="text-fuchsia-300">Mythic: {activeMultiplayerResults[0].mythicExample}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Next Round Controls */}
-            {gameMode === 'party' && revealedCount >= activeMultiplayerResults.length && (
-              <button
-                onClick={async () => {
-                  if (roundNum >= totalRounds) {
-                    setPhase('SUMMARY');
-                    return;
-                  }
-                  const nextR = roundNum + 1;
-                  setRoundNum(nextR);
-                  await beginPartyRound(nextR, partyPlayersState, usedTopics);
-                }}
-                disabled={Boolean(loadingMsg)}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl"
-              >
-                {loadingMsg ||
-                  (roundNum >= totalRounds
-                    ? lang === 'th'
-                      ? 'ดูสรุปผู้ชนะ'
-                      : 'Final Podium'
-                    : lang === 'th'
-                    ? 'เริ่มรอบถัดไป'
-                    : 'Next Round')}
-              </button>
-            )}
-
-            {gameMode === 'online' &&
-              (isHost ? (
-                <button
-                  onClick={advanceOnlineRound}
-                  disabled={Boolean(loadingMsg)}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl"
-                >
-                  {loadingMsg ||
-                    (activeRoundNum >= activeTotalRounds
-                      ? lang === 'th'
-                        ? 'จบเกมและดูโพเดียม'
-                        : 'Finish & Show Podium'
-                      : lang === 'th'
-                      ? 'เริ่มรอบถัดไป'
-                      : 'Next Round')}
-                </button>
-              ) : (
-                <div className="text-center text-xs text-slate-400 py-2">
-                  {lang === 'th' ? 'รอ Host กดไปรอบถัดไป...' : 'Waiting for Host to advance...'}
-                </div>
-              ))}
-          </div>
-        )}
-
-        {/* PHASE: SUMMARY / PODIUM */}
-        {phase === 'SUMMARY' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6 text-center">
-            <Trophy className="w-12 h-12 text-amber-400 mx-auto"/>
-            <div>
-              <h2 className="text-2xl font-black">
-                {lang === 'th' ? 'สรุปผลการแข่งขัน!' : 'Final Results!'}
-              </h2>
-              {gameMode === 'solo' && (
-                <div className="text-4xl font-black text-indigo-400 mt-2">{soloScore} pts</div>
-              )}
-            </div>
-
-            {gameMode !== 'solo' && (
-              <div className="max-w-md mx-auto space-y-2 text-left">
-                {[...activeMultiplayerPlayers]
-                  .sort((a, b) => b.score - a.score)
-                  .map((p, idx) => (
-                    <div
-                      key={p.id}
-                      className={`flex items-center justify-between px-4 py-3 rounded-xl border ${
-                        idx === 0
-                          ? 'bg-amber-950/40 border-amber-400 text-amber-200 font-bold'
-                          : 'bg-slate-950 border-slate-800'
-                      }`}
-                    >
-                      <span>
-                        {idx === 0 ? '👑 ' : `#${idx + 1} `}
-                        {p.avatar} {p.handle || p.name}
-                      </span>
-                      <span>{p.score} pts</span>
-                    </div>
-                  ))}
-              </div>
-            )}
-
-            <div className="flex flex-wrap justify-center gap-3">
-              <button
-                onClick={shareInvite}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm"
-              >
-                <Share2 className="w-4 h-4"/>
-                {lang === 'th' ? 'แชร์ผลคะแนน' : 'Share Results'}
-              </button>
-              <button
-                onClick={() => {
-                  setPhase('LOBBY');
-                  setRoomCode('');
-                  setRoomData(null);
-                }}
-                className="bg-slate-800 hover:bg-slate-700 text-white font-bold px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm"
-              >
-                <Home className="w-4 h-4"/>
-                {lang === 'th' ? 'กลับหน้าหลัก' : 'Back to Lobby'}
-              </button>
-            </div>
-          </div>
-        )}
       </main>
+
+      {/* QR Code Share Modal */}
+      {showQrModal && roomId && (
+        <div
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowQrModal(false)}
+        >
+          <div
+            className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 text-center space-y-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-black text-lg">{t('สแกนเพื่อเข้าห้องทันที', 'Scan to Join Room')}</h3>
+            <div className="bg-white p-3 rounded-2xl inline-block">
+              <img src={qrImageUrl} alt="Room QR Code" className="w-52 h-52" />
+            </div>
+            <div className="font-mono font-black text-2xl tracking-widest text-indigo-300">{roomId}</div>
+            <div className="text-[11px] text-slate-400 break-all bg-slate-950 p-2.5 rounded-xl">{inviteUrl}</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={copyInviteLink}
+                className="py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-bold text-white flex items-center justify-center gap-1.5"
+              >
+                {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copiedLink ? t('คัดลอกแล้ว', 'Copied') : t('คัดลอกลิงก์', 'Copy Link')}
+              </button>
+              <button
+                onClick={() => setShowQrModal(false)}
+                className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200"
+              >
+                {t('ปิด', 'Close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
