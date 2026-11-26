@@ -9,7 +9,7 @@ export async function POST(request) {
 
   try {
     const { prompt, systemInstruction, responseMimeType } = await request.json();
-    const models = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+    const models = ['gemini-3.0-flash', 'gemini-2.5-flash-lite'];
     let lastError = null;
 
     for (const model of models) {
@@ -41,7 +41,7 @@ export async function POST(request) {
       }
 
       lastError = await res.text();
-      if (res.status !== 429 && res.status !== 503) {
+      if (res.status !== 404 && res.status !== 429 && res.status !== 503) {
         break;
       }
     }
