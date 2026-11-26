@@ -1505,7 +1505,7 @@ Return strict JSON:
                             : 'bg-slate-900 border-slate-800 hover:border-slate-700'
                         }`}
                       >
-                        <Icon ${gameMode="==" 'text-indigo-400' 'text-slate-400'}`} : ? className="{`w-5" h-5 m.id mb-2/>
+                      <Icon className={`w-5 h-5 mb-2 ${gameMode === m.id ? 'text-indigo-400' : 'text-slate-400'}`} />
                         <div className="font-bold text-sm">{lang === 'th' ? m.titleTh : m.titleEn}</div>
                         <div className="text-xs text-slate-400 mt-1">{lang === 'th' ? m.descTh : m.descEn}</div>
                       </button>
